@@ -1,0 +1,23 @@
+# Keep the Docker build context small. The .git directory alone is larger
+# than the source, and none of it is needed to build the binary.
+
+.git
+.gitignore
+.gitattributes
+.github
+.agents
+skills-lock.json
+
+# Not needed to build or run the service.
+*.md
+!README.md
+.env
+.env.local
+docker-compose.yml
+render.yaml
+
+# Build artifacts and local state.
+bin/
+coverage.out
+*.exe
+*.test
