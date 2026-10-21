@@ -1,51 +1,86 @@
-# Render blueprint for the clinic booking API.
+# Render Blueprint for the clinic booking API.
 #
-#   render blueprint launch
+# This file uses Render's current Blueprint format (version "1"), which
+# groups resources into a project and its environments. Render exports this
+# shape from the dashboard, so the file and the workspace stay congruent.
 #
-# The web service builds from the Dockerfile in the repository root and
-# deploys automatically whenever main changes.
+# NOTE ON THE SERVICE NAME
+#   "clinic-booking-system-1" is the name Render generated when the service
+#   was created. Keeping that exact name makes the Blueprint ADOPT the
+#   existing service. Renaming it makes Render create a second service and
+#   leave the original running.
 #
-# IMPORTANT: the service must use the Docker runtime. Render also offers a
-# native Go runtime, which ignores the Dockerfile and runs "go build -o app"
-# in the repository root. That fails here, because the main package lives in
-# ./cmd/api rather than at the root.
+# NOTE ON THE RUNTIME
+#   The service must use the Docker runtime. Render also offers a native Go
+#   runtime, which ignores the Dockerfile and runs "go build -o app" in the
+#   repository root. That fails here, because the main package lives in
+#   ./cmd/api rather than at the root.
 #
-# If the service was created from the dashboard with the native Go runtime,
-# either change the runtime to Docker in the service settings, or keep the
-# native runtime and use these build settings instead:
+#   If the service ever has to run on the native Go runtime instead, use:
+#     Build Command: go build -tags netgo -ldflags '-s -w' -o app ./cmd/api
+#     Start Command: ./app
 #
-#   Build Command: go build -tags netgo -ldflags '-s -w' -o app ./cmd/api
-#   Start Command: ./app
+# MIGRATIONS
+#   They run inside the application on boot, under a Postgres advisory lock
+#   and guarded by a schema_migrations table, so they are idempotent and
+#   safe when several instances start at once. The migrations complete
+#   before the HTTP server starts listening, so no request can ever reach
+#   the service with an outdated schema. That is why there is no
+#   preDeployCommand here.
 
-databases:
-  - name: clinic-db
-    databaseName: clinic
-    user: clinic
-    plan: free
-    postgresMajorVersion: "18"
+version: "1"
 
-services:
-  - type: web
-    name: clinic-booking-api
-    runtime: docker
-    # The Dockerfile lives at the root of the repository and the build
-    # context is the repository itself.
-    dockerfilePath: ./Dockerfile
-    plan: free
-    region: frankfurt
-    # The health check pings the database, so a container that cannot reach
-    # Postgres is reported unhealthy instead of silently serving errors.
-    healthCheckPath: /healthz
-    # Render rebuilds and redeploys whenever main changes. The GitHub
-    # Actions pipeline gates that with its test job.
-    autoDeploy: true
-    envVars:
-      - key: DATABASE_URL
-        fromDatabase:
-          name: clinic-db
-          property: connectionString
-      - key: CLINIC_TZ
-        value: Africa/Nairobi
-      - key: LOG_LEVEL
-        value: info
-      # PORT is injected by Render automatically.
+projects:
+  - name: Clinic Booking System
+    environments:
+      - name: Production
+        services:
+          - type: web
+            name: clinic-booking-system-1
+            runtime: docker
+            repo: https://github.com/PhilN8/clinic-booking-system
+            # The branch Render builds from. The Blueprint is stored in this
+            # same repository, so omitting it would also resolve to main,
+            # but being explicit is cheaper than debugging.
+            branch: main
+            plan: free
+            region: frankfurt
+            # The Dockerfile lives at the repository root and the build
+            # context is the repository itself.
+            dockerContext: .
+            dockerfilePath: ./Dockerfile
+            # Deploy only when the linked branch's CI checks pass. This is
+            # what makes the GitHub Actions pipeline gate the live deploy
+            # rather than merely running alongside it.
+            autoDeployTrigger: checksPass
+            # The endpoint pings the database, so a container that cannot
+            # reach Postgres is reported unhealthy instead of silently
+            # serving errors.
+            healthCheckPath: /healthz
+            # The application shuts down gracefully within 20 seconds, so
+            # Render's default 30 second window is enough.
+            maxShutdownDelaySeconds: 30
+            envVars:
+              # Wired to the Postgres instance defined below. The value is
+              # resolved by Render and is never written into this file.
+              - key: DATABASE_URL
+                fromDatabase:
+                  name: clinic-db
+                  property: connectionString
+              # The timezone the clinic operates in. The appointment model
+              # stores naive wall-clock times in this zone.
+              - key: CLINIC_TZ
+                value: Africa/Nairobi
+              - key: LOG_LEVEL
+                value: info
+              # PORT is injected by Render automatically.
+
+        databases:
+          - name: clinic-db
+            plan: free
+            region: frankfurt
+            # Must match the service's region, otherwise Render cannot use
+            # the private network connection.
+            postgresMajorVersion: "18"
+            databaseName: clinic
+            user: clinic

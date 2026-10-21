@@ -457,20 +457,36 @@ unset, so `go test ./...` still passes without a DB):
 
 ### `render.yaml`
 
-- Service type `web`, runtime `docker`, plan `free`.
-- Health check path `/healthz`.
-- `DATABASE_URL` from a Render managed Postgres instance.
-- `CLINIC_TZ` default `Africa/Nairobi`.
-- Auto-deploy: on push to `main`.
+Uses Render's current Blueprint format (`version: "1"`, `projects` → `environments` → `services`),
+which is the shape Render exports from the dashboard. The flat `services:`/`databases:` layout and
+the `projects:` layout are mutually exclusive — "do not define the same service in more than one
+location".
+
+- Service name: `clinic-booking-system-1`. Render **adopts** an existing service when the name
+  matches exactly; a different name creates a second service.
+- `runtime: docker`, `dockerfilePath: ./Dockerfile`, `dockerContext: .`
+- `autoDeployTrigger: checksPass` — Render waits for the linked branch's CI checks to pass before
+  it deploys, so the pipeline genuinely gates the release.
+- `healthCheckPath: /healthz`
+- The Postgres instance is declared in the same environment and `DATABASE_URL` is wired to it
+  with `fromDatabase`.
+- Migrations run in the application on boot under an advisory lock, not in a `preDeployCommand`:
+  they complete before the HTTP server starts listening, so no request can reach the service with
+  an outdated schema.
+
+Validate the file against Render's published JSON Schema (`https://render.com/schema/render.yaml.json`)
+or the Validate Blueprint API endpoint before relying on it.
 
 ### `.github/workflows/ci.yml`
 
-- **On `pull_request`:** `go vet ./...`, `go test -race ./...` (with a `postgres:18` service
-  container for the integration tests), `go build ./...`.
-- **On push to `main`:** the same checks, then build & push the Docker image to Docker Hub and
-  call Render's **deploy hook** URL (a repository secret). Both steps are optional: if the secrets
-  are absent the job reports a notice and skips them, and Render's own auto-deploy handles the
-  deploy, so `main` never goes red on optional configuration.
+- **On every pull request and push to `main`:** `go vet ./...`, `go test -race ./...` (with a
+  `postgres:18` service container for the integration tests), `go build ./...`, and a validation
+  of `render.yaml` against Render's Validate Blueprint endpoint.
+- **On push to `main`:** build and push the Docker image to Docker Hub. The deploy itself is
+  Render's `checksPass` trigger, so the pipeline does **not** also call the deploy hook — doing
+  both would deploy twice.
+- Every secret-dependent step is optional: if the secret is absent the step is skipped with a
+  notice, so `main` never goes red on optional configuration.
 - Document in the README: which branch triggers the deploy, what the pipeline does, and the live URL.
 
 ### `docker-compose.yml`

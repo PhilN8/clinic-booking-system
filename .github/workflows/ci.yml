@@ -66,10 +66,55 @@ jobs:
           path: coverage.out
           if-no-files-found: ignore
 
-  deploy:
-    name: Deploy
+  blueprint:
+    name: Validate blueprint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Look for the Render API credentials
+        id: creds
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_WORKSPACE_ID: ${{ secrets.RENDER_WORKSPACE_ID }}
+        run: |
+          if [ -n "$RENDER_API_KEY" ] && [ -n "$RENDER_WORKSPACE_ID" ]; then
+            echo "render=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "render=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Render API credentials are not configured; skipping the blueprint validation."
+          fi
+
+      - name: Validate render.yaml against the Render API
+        # Catches a broken blueprint here rather than at deploy time, where
+        # the only symptom is a failed deployment log.
+        if: steps.creds.outputs.render == 'true'
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_WORKSPACE_ID: ${{ secrets.RENDER_WORKSPACE_ID }}
+        run: |
+          curl -fsS -X POST "https://api.render.com/v1/blueprints/validate" \
+            -H "Authorization: Bearer $RENDER_API_KEY" \
+            -F "ownerId=$RENDER_WORKSPACE_ID" \
+            -F "file=@render.yaml" > response.json
+
+          if [ "$(jq -r '.valid' response.json)" != "true" ]; then
+            echo "::error::render.yaml did not validate"
+            jq -r '.errors[]? | "  \(.path): \(.error) (line \(.line), column \(.column))"' response.json
+            exit 1
+          fi
+
+          echo "render.yaml is valid."
+          echo "Planned actions: $(jq -r '.plan.totalActions // 0' response.json)"
+          echo "Services: $(jq -r '(.plan.services // []) | join(", ")' response.json)"
+          echo "Databases: $(jq -r '(.plan.databases // []) | join(", ")' response.json)"
+
+  publish:
+    name: Publish image
     needs: test
-    # Only a push to main deploys. Pull requests run the checks but do not
+    # Only a push to main publishes. Pull requests run the checks but never
     # touch the live environment.
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -78,23 +123,16 @@ jobs:
       - name: Check out the repository
         uses: actions/checkout@v4
 
-      - name: Look for the optional deployment credentials
+      - name: Look for the Docker Hub credentials
         id: creds
         env:
           DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
         run: |
           if [ -n "$DOCKERHUB_USERNAME" ]; then
             echo "dockerhub=true" >> "$GITHUB_OUTPUT"
           else
             echo "dockerhub=false" >> "$GITHUB_OUTPUT"
             echo "::notice::Docker Hub credentials are not configured; skipping the image push."
-          fi
-          if [ -n "$RENDER_DEPLOY_HOOK" ]; then
-            echo "hook=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "hook=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::RENDER_DEPLOY_HOOK is not configured; Render's own auto-deploy handles the deploy."
           fi
 
       - name: Set up Docker Buildx
@@ -109,6 +147,15 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push the image
+        # The deploy itself is Render's job. render.yaml sets
+        # autoDeployTrigger: checksPass, so Render waits for this workflow's
+        # test job to pass on main and then redeploys. Calling Render's
+        # deploy hook from here as well would trigger a second, redundant
+        # deploy.
+        #
+        # This step exists to publish a versioned artefact of the exact
+        # commit that was deployed, and to give the option of switching
+        # Render to runtime: image later.
         if: steps.creds.outputs.dockerhub == 'true'
         uses: docker/build-push-action@v6
         with:
@@ -119,13 +166,3 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/clinic-booking-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-      - name: Trigger the Render deploy hook
-        # Render's own auto-deploy already redeploys on a push to main, so
-        # this step is optional. When RENDER_DEPLOY_HOOK is set the deploy is
-        # driven by this pipeline instead; when it is not, the run stays
-        # green and Render handles it.
-        if: steps.creds.outputs.hook == 'true'
-        env:
-          RENDER_DEPLOY_HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
-        run: curl -fsSL "$RENDER_DEPLOY_HOOK"
