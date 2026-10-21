@@ -27,3 +27,28 @@ func (r *Repository) PatientByID(ctx context.Context, id int64) (*models.Patient
 	}
 	return &patient, nil
 }
+
+// ListPatients returns every patient, ordered by id.
+func (r *Repository) ListPatients(ctx context.Context) ([]models.Patient, error) {
+	ctx, cancel := ctxWithTimeout(ctx)
+	defer cancel()
+
+	rows, err := r.db.QueryContext(ctx, `SELECT `+patientColumns+` FROM patients ORDER BY id`)
+	if err != nil {
+		return nil, wrapErr("repository: list patients", err)
+	}
+	defer rows.Close()
+
+	patients := make([]models.Patient, 0, 8)
+	for rows.Next() {
+		var patient models.Patient
+		if err := rows.Scan(&patient.ID, &patient.Name); err != nil {
+			return nil, wrapErr("repository: list patients", err)
+		}
+		patients = append(patients, patient)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, wrapErr("repository: list patients", err)
+	}
+	return patients, nil
+}

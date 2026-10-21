@@ -75,6 +75,16 @@ func (f *fakeRepository) PatientByID(_ context.Context, id int64) (*models.Patie
 	return &patient, nil
 }
 
+func (f *fakeRepository) ListPatients(_ context.Context) ([]models.Patient, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	patients := make([]models.Patient, 0, len(f.patients))
+	for _, patient := range f.patients {
+		patients = append(patients, patient)
+	}
+	return patients, nil
+}
+
 func (f *fakeRepository) CreateAppointment(_ context.Context, a *models.Appointment) (*models.Appointment, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
