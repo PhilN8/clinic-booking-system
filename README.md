@@ -6,6 +6,10 @@ never be double-booked.
 
 Built in Go with PostgreSQL. Standard library only, plus the Postgres driver.
 
+The patient-facing site that will sit in front of this API has its own design system in
+[`design.md`](design.md), with the colour tokens in [`design/tokens.json`](design/tokens.json)
+and their accessibility contrast ratios enforced by the test suite.
+
 ---
 
 ## Table of contents
@@ -18,6 +22,7 @@ Built in Go with PostgreSQL. Standard library only, plus the Postgres driver.
 6. [Deployment](#6-deployment)
 7. [Known Limitations & Future Work](#7-known-limitations--future-work)
 8. [AI Reflection](#8-ai-reflection)
+9. [Design System](#9-design-system)
 
 ---
 
@@ -948,3 +953,33 @@ impossible, which is what `409` is for. `422` is reserved for requests that are 
 inherently disallowed, such as a slot outside working hours. This is a judgement about REST
 semantics rather than a technical fact, and I would rather defend it than have it made by
 default.
+
+---
+
+## 9. Design System
+
+The patient-facing site has a documented design system in [`design.md`](design.md). It covers the
+palette, typography, spacing, component inventory, the booking flow, content tone and the
+WCAG 2.2 AA checklist, and it maps each component back to the endpoint it is built from.
+
+The colour decisions are **enforced by the test suite** rather than asserted in prose.
+`design/tokens.json` is the source of truth, and `design/tokens_test.go` fails `go test ./...` if
+any documented pairing drops below its contrast requirement:
+
+```bash
+go test ./design/ -v     # verifies every pairing and prints the table
+```
+
+The test also catches a malformed hex value, two token names sharing a colour, and a scale whose
+shades run the wrong way round. The contrast table in `design.md` is that test's output and is
+verified to match it.
+
+Two decisions in there are worth calling out here because they constrain the API:
+
+- **Available slots are neutral, not green.** A free slot is the default state, so it carries no
+  colour; the only colour in the slot grid is the selection. Green is reserved for a completed
+  action and red for cancellation or error, which keeps green and red from being the one pair a
+  colour-blind reader has to separate.
+- **The interface has to explain the one-hour rule.** `GET /availability` hides slots inside the
+  lead time and `POST /appointments` refuses them, so the site states the rule plainly above the
+  grid rather than leaving the patient to think it is a bug.

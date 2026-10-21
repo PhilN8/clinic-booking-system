@@ -515,6 +515,29 @@ Required sections, in order:
 8. **AI Reflection** — answer all four assessment questions honestly and specifically. Name the
    prompt that produced a useful result, and name a case where the AI was wrong and how it was
    caught. Do not fake confidence; specificity is what's read.
+9. **Design System** — point at `design.md` and explain that the colour tokens are enforced by
+   `go test ./design/`.
+
+---
+
+## 10a. Design System
+
+`design.md` is the design language for the patient-facing site. `design/tokens.json` is the
+source of truth for colour and `design/tokens_test.go` enforces the WCAG 2.2 contrast
+requirements for every documented pairing.
+
+Rules for anyone extending it:
+
+- **Never hardcode a hex in a component.** Reference a token.
+- **A new colour goes in an existing scale.** A new hue needs a reason that survives the question
+  "why is this not `brand.500` or `neutral.600`?"
+- **A new pairing goes in `pairs` with its WCAG requirement.** If it cannot meet the
+  requirement, the design is wrong, not the test.
+- **Re-run `go test ./design/ -v` after any colour change** and regenerate the contrast table in
+  `design.md`. That table is generated output and must never be hand-edited.
+- **Available slots are neutral, not green** — a free slot is the default state. Colour marks
+  state, never decoration. Red is reserved for errors and destructive actions; in a health
+  context it means medical urgency and must not be used for a cancelled appointment.
 
 ---
 
