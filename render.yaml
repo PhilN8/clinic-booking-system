@@ -1,0 +1,34 @@
+# Render blueprint for the clinic booking API.
+#
+#   render blueprint launch
+#
+# The web service builds from the Dockerfile in the repository root and
+# deploys automatically whenever main changes.
+
+databases:
+  - name: clinic-db
+    databaseName: clinic
+    user: clinic
+    plan: free
+    postgresMajorVersion: "16"
+
+services:
+  - type: web
+    name: clinic-booking-api
+    runtime: docker
+    plan: free
+    region: frankfurt
+    # The health check pings the database, so a container that cannot reach
+    # Postgres is reported as unhealthy instead of silently serving errors.
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: clinic-db
+          property: connectionString
+      - key: CLINIC_TZ
+        value: Africa/Nairobi
+      - key: LOG_LEVEL
+        value: info
+      # PORT is injected by Render automatically.

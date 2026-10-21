@@ -1,0 +1,43 @@
+# Local development stack.
+#
+#   docker compose up -d
+#   DATABASE_URL=postgres://postgres:postgres@localhost:5432/clinic?sslmode=disable go run ./cmd/api
+#
+# The API service is started by the compose file as well, so
+# "docker compose up -d" alone is enough to get a running API on :8080.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: clinic-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: clinic
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d clinic"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    container_name: clinic-api
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/clinic?sslmode=disable
+      PORT: "8080"
+      CLINIC_TZ: Africa/Nairobi
+      LOG_LEVEL: debug
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
