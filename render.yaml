@@ -4,6 +4,18 @@
 #
 # The web service builds from the Dockerfile in the repository root and
 # deploys automatically whenever main changes.
+#
+# IMPORTANT: the service must use the Docker runtime. Render also offers a
+# native Go runtime, which ignores the Dockerfile and runs "go build -o app"
+# in the repository root. That fails here, because the main package lives in
+# ./cmd/api rather than at the root.
+#
+# If the service was created from the dashboard with the native Go runtime,
+# either change the runtime to Docker in the service settings, or keep the
+# native runtime and use these build settings instead:
+#
+#   Build Command: go build -tags netgo -ldflags '-s -w' -o app ./cmd/api
+#   Start Command: ./app
 
 databases:
   - name: clinic-db
@@ -16,11 +28,16 @@ services:
   - type: web
     name: clinic-booking-api
     runtime: docker
+    # The Dockerfile lives at the root of the repository and the build
+    # context is the repository itself.
+    dockerfilePath: ./Dockerfile
     plan: free
     region: frankfurt
     # The health check pings the database, so a container that cannot reach
-    # Postgres is reported as unhealthy instead of silently serving errors.
+    # Postgres is reported unhealthy instead of silently serving errors.
     healthCheckPath: /healthz
+    # Render rebuilds and redeploys whenever main changes. The GitHub
+    # Actions pipeline gates that with its test job.
     autoDeploy: true
     envVars:
       - key: DATABASE_URL

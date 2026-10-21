@@ -651,46 +651,84 @@ instance, from `render.yaml` in this repository.
 
 **`deploy`** — only on a push to `main`, and only if `test` passed:
 
-1. Build the Docker image and push it to Docker Hub, with the GitHub Actions build cache
-2. Call Render's deploy hook, which rebuilds and restarts the web service
+1. Build the Docker image and push it to Docker Hub, tagged with the commit SHA and `latest`,
+   using the GitHub Actions build cache
+2. Call Render's deploy hook, which restarts the web service
 
 Pull requests run the checks and never touch the live environment.
 
-**Required repository secrets:**
+**Optional repository secrets.** The deploy job degrades gracefully without them, so a
+misconfigured pipeline never turns `main` red:
 
-| Secret | Purpose |
-|---|---|
-| `DOCKERHUB_USERNAME` | Docker Hub account to push the image to |
-| `DOCKERHUB_TOKEN` | Docker Hub access token |
-| `RENDER_DEPLOY_HOOK` | Render deploy hook URL, from the service's settings |
+| Secret | Purpose | If unset |
+|---|---|---|
+| `DOCKERHUB_USERNAME` | Docker Hub account to push the image to | The image push is skipped with a notice |
+| `DOCKERHUB_TOKEN` | Docker Hub access token | As above |
+| `RENDER_DEPLOY_HOOK` | Render deploy hook URL, from the service's settings | Render's own auto-deploy handles the deploy |
 
 ### 6.3 Launching it on Render
 
+There are two ways in. The blueprint is the one to prefer because it creates the database and
+wires `DATABASE_URL` for you.
+
+**Option A — Blueprint (recommended)**
+
 ```bash
-# 1. Push this repository to GitHub.
-git push -u origin main
-
-# 2. In Render: New -> Blueprint, point it at the repository, and apply.
-#    render.yaml creates both the web service and the PostgreSQL instance
-#    and wires DATABASE_URL between them.
-
-# 3. Create the Docker Hub credentials and the Render deploy hook as
-#    repository secrets, then push to main to trigger the first deploy.
-
-# 4. Read the deploy hook and the live URL from the Render dashboard.
+# 1. In Render: New -> Blueprint, point it at the repository, and apply.
+#    render.yaml creates both the web service and the PostgreSQL instance,
+#    sets runtime: docker and autoDeploy: true, and wires DATABASE_URL.
 ```
 
-The service listens on `$PORT`, which Render injects. Migrations run on boot inside an advisory
-lock, so the first instance to come up applies them and any later instance waits.
+**Option B — the service already exists**
+
+If the service was created from the dashboard, check two settings under **Settings -> Build &
+Deploy**:
+
+1. **Runtime must be `Docker`.** Render also offers a native Go runtime, which ignores the
+   `Dockerfile` and runs `go build -tags netgo -ldflags '-s -w' -o app` in the repository root.
+   That fails here, because the main package lives in `./cmd/api`, not at the root.
+2. **Auto-Deploy must be on, with the branch set to `main`.**
+
+If you would rather keep the native Go runtime, use these build settings instead of switching:
+
+| Setting | Value |
+|---|---|
+| Build Command | `go build -tags netgo -ldflags '-s -w' -o app ./cmd/api` |
+| Start Command | `./app` |
+
+Either way, make sure the service has `DATABASE_URL` pointing at a Postgres instance and
+`CLINIC_TZ` set to `Africa/Nairobi`. Render injects `PORT` itself.
 
 ### 6.4 Deployment status
 
-> **The live URL has not been filled in yet.** Deploying needs the owner's Render and Docker
-> Hub accounts, which this environment does not have. Everything needed is in the repository:
-> the `render.yaml` blueprint, the `Dockerfile`, the CI workflow and the deployment hook. The
-> procedure in 6.3 is the whole of it — roughly five minutes, most of it clicking through
-> Render's dashboard. The one thing missing from the repository is the URL itself, which does
-> not exist until the service is first launched.
+> **The live URL has not been filled in yet.** Everything needed is in the repository: the
+> `render.yaml` blueprint, the `Dockerfile`, the CI workflow and the deployment procedure in
+> 6.3. The one thing missing from the repository is the URL itself, which does not exist until
+> the service has deployed successfully for the first time.
+
+### 6.5 Troubleshooting
+
+**`go: go.mod file not found in current directory or any parent directory`**
+
+Render deployed a commit that predates the module — check that the branch it deploys from
+actually contains `go.mod`. This is what happens when a pull request has not been merged into
+`main` yet.
+
+**`Using Go version ...` followed by `go build -tags netgo`**
+
+The service is using Render's native Go runtime instead of Docker, so the `Dockerfile` is being
+ignored. See 6.3.
+
+**`no Go files in ...` or `main.go: no such file or directory`**
+
+Same cause as above: the native runtime builds from the repository root, but the main package is
+at `./cmd/api`. Either switch to the Docker runtime or set the build command from 6.3.
+
+**`failed to connect to ... database`**
+
+The `DATABASE_URL` is wrong or the database is not in the same region as the service. Check the
+Render dashboard for the database's connection string and copy it into the service's environment
+variables.
 
 ---
 
