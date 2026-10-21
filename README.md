@@ -309,7 +309,7 @@ curl http://localhost:8080/healthz
 
 ### 3.2 Without Docker
 
-You need a PostgreSQL 15+ instance.
+You need a PostgreSQL 18 instance.
 
 ```bash
 git clone https://github.com/PhilN8/clinic-booking-system.git
@@ -587,7 +587,7 @@ With Docker:
 
 ```bash
 docker run -d --name clinic-test-pg -e POSTGRES_PASSWORD=postgres \
-  -e POSTGRES_USER=postgres -e POSTGRES_DB=clinic_test -p 5432:5432 postgres:16-alpine
+  -e POSTGRES_USER=postgres -e POSTGRES_DB=clinic_test -p 5432:5432 postgres:18-alpine
 export TEST_DATABASE_URL="postgres://postgres:postgres@localhost:5432/clinic_test?sslmode=disable"
 go test ./...
 ```
@@ -635,7 +635,7 @@ instance, from `render.yaml` in this repository.
 | **Live URL** | _pending — see 6.4_ |
 | **Deploy trigger** | a push to `main` |
 | **Health check** | `GET /healthz` |
-| **Database** | Render managed PostgreSQL 16, free plan |
+| **Database** | Render managed PostgreSQL 18, free plan |
 
 ### 6.2 The pipeline
 
@@ -645,7 +645,7 @@ instance, from `render.yaml` in this repository.
 
 1. `go mod verify`
 2. `go vet ./...`
-3. `go test -race -coverprofile=coverage.out ./...`, with a `postgres:16` service container so
+3. `go test -race -coverprofile=coverage.out ./...`, with a `postgres:18` service container so
    the integration tests actually run rather than skipping
 4. `go build ./...`
 
@@ -699,14 +699,30 @@ If you would rather keep the native Go runtime, use these build settings instead
 Either way, make sure the service has `DATABASE_URL` pointing at a Postgres instance and
 `CLINIC_TZ` set to `Africa/Nairobi`. Render injects `PORT` itself.
 
-### 6.4 Deployment status
+### 6.4 Upgrading an existing Render database
+
+`postgresMajorVersion` in `render.yaml` applies when the database is **created**. It does not
+migrate a database that already exists, so an instance created against the previous
+`postgresMajorVersion` stays on the old major version.
+
+Render offers two routes, from its own documentation:
+
+- **In-place upgrade** — always moves to the latest major version Render supports, which is
+  currently 18. It requires downtime.
+- **Create a new database on 18 and point the service at it** — this is the option to take here.
+  The database holds only seed data and bookings created while testing, so there is nothing worth
+  migrating: create a fresh PostgreSQL 18 instance, copy its **External Database URL** into the
+  web service's `DATABASE_URL`, and redeploy. The migrations and the seed run automatically on
+  boot.
+
+### 6.5 Deployment status
 
 > **The live URL has not been filled in yet.** Everything needed is in the repository: the
 > `render.yaml` blueprint, the `Dockerfile`, the CI workflow and the deployment procedure in
 > 6.3. The one thing missing from the repository is the URL itself, which does not exist until
 > the service has deployed successfully for the first time.
 
-### 6.5 Troubleshooting
+### 6.6 Troubleshooting
 
 **`go: go.mod file not found in current directory or any parent directory`**
 
@@ -729,6 +745,23 @@ at `./cmd/api`. Either switch to the Docker runtime or set the build command fro
 The `DATABASE_URL` is wrong or the database is not in the same region as the service. Check the
 Render dashboard for the database's connection string and copy it into the service's environment
 variables.
+
+**`The suggested container configuration for 18+ is to place a single mount at
+/var/lib/postgresql`**
+
+PostgreSQL 18's Docker image moved its data directory to `/var/lib/postgresql/18/docker` and
+declares `/var/lib/postgresql` as the volume. A volume mounted at `/var/lib/postgresql/data` —
+the PostgreSQL 16 layout — is rejected outright by the image. `docker-compose.yml` mounts the
+parent directory for this reason.
+
+**`database "clinic_test" does not exist`**
+
+The integration tests need their own database. The compose stack creates `clinic`; create the
+test one alongside it:
+
+```bash
+docker compose exec postgres psql -U postgres -c "CREATE DATABASE clinic_test;"
+```
 
 ---
 

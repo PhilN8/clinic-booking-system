@@ -22,7 +22,7 @@ databases:
     databaseName: clinic
     user: clinic
     plan: free
-    postgresMajorVersion: "16"
+    postgresMajorVersion: "18"
 
 services:
   - type: web
