@@ -67,16 +67,32 @@ internal/repository/appointment.go
 internal/repository/errors.go    # ErrNotFound, ErrConflict, IsUniqueViolation
 internal/service/                # ALL business logic lives here (pure, no SQL)
 internal/service/service.go      # Service struct, booking/cancel/reschedule orchestration
+internal/service/schedule.go     # the whole day's grid, with each slot's status
 internal/service/clock.go        # Clock interface + realClock
 internal/service/validation.go   # pure validation functions
 internal/service/slots.go        # slot grid generation
 internal/service/*_test.go       # table-driven unit tests
 internal/handlers/               # HTTP only: decode -> call service -> encode
-internal/handlers/router.go
+internal/handlers/router.go      # the API handlers and their middleware
 internal/handlers/appointments.go
 internal/handlers/doctors.go
 internal/handlers/patients.go
+internal/handlers/json.go
 internal/handlers/handlers_test.go
+internal/web/                    # the patient facing site, rendered on the server
+internal/web/web.go              # templates, assets, routing, Accept negotiation
+internal/web/handlers.go         # the pages
+internal/web/view.go             # the data each page is given
+internal/web/format.go           # 12-hour times, long dates, initials
+internal/web/templates/*.html    # layout, partials and one file per page
+internal/web/static/app.css      # the stylesheet; no hex values, only tokens
+internal/web/static/app.js       # progressive enhancement only
+internal/web/*_test.go
+design/                          # the design tokens and their contrast test
+design/tokens.json               # the palette; the source of truth for colour
+design/tokens.go                 # loading, lookup and CSS variable generation
+design/tokens_test.go            # the WCAG contrast assertions
+design.md                        # the design system document
 .github/workflows/ci.yml
 Dockerfile
 docker-compose.yml
@@ -86,6 +102,10 @@ README.md
 
 **Layering rule:** `handlers → service → repository → database`. The service layer never imports
 `net/http`; handlers never build SQL; repositories contain no business rules.
+
+**The site (`internal/web`) sits alongside the API, not above it.** It reads through the same
+service layer, renders Go templates, and never writes SQL. The JSON API contract is unchanged.
+
 
 ---
 
