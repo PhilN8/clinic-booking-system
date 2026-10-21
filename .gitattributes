@@ -1,0 +1,8 @@
+# Normalise line endings on checkin so the repository content is identical
+# on every platform, and so the Docker build context does not carry CRLF.
+* text=auto eol=lf
+
+# Windows scripts are the exception.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf

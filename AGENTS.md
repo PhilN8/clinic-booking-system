@@ -218,13 +218,18 @@ directly inside business logic — tests must be able to freeze it.
 | 2 | `doctor_id`, `patient_id` present and > 0; `appointment_date` matches `2006-01-02`; `start_time` matches `15:04` (24h, `09:00`) | 400 | `INVALID_REQUEST` / `INVALID_DATE` / `INVALID_TIME` |
 | 3 | Doctor exists | 404 | `DOCTOR_NOT_FOUND` |
 | 4 | Patient exists | 404 | `PATIENT_NOT_FOUND` |
-| 5 | `start_time` is on the doctor's 30-minute grid | 422 | `SLOT_NOT_ALIGNED` |
-| 6 | `start_time >= shift_start` **and** `start_time + 30m <= shift_end` | 422 | `OUTSIDE_WORKING_HOURS` |
+| 5 | `start_time >= shift_start` **and** `start_time + 30m <= shift_end` | 422 | `OUTSIDE_WORKING_HOURS` |
+| 6 | `start_time` is on the doctor's 30-minute grid | 422 | `SLOT_NOT_ALIGNED` |
 | 7 | `start instant >= now + 1h` (exactly 60 min away is **allowed**) | 422 | `TOO_SOON` |
 | 8 | Slot not already booked | 409 | `SLOT_TAKEN` |
 
 Rule 7 subsumes "must not be in the past". Rule 8 is enforced by the DB, not by a read-then-write
 check — see §7.
+
+**Rule 5 comes before rule 6 on purpose.** Checking the working window first produces the more
+useful message: "08:30 when the doctor starts at 09:00" is reported as being outside working
+hours, not as a misaligned start. An off-grid time that is *inside* the window (09:15) is still
+reported as misaligned.
 
 ### PATCH /appointments/{id}/cancel
 
@@ -235,6 +240,10 @@ check — see §7.
 4. The appointment has not already started (`start instant >= now`) → else 422
    `APPOINTMENT_IN_PAST`. You cannot cancel a visit that already happened.
 5. `UPDATE ... SET status='cancelled', cancellation_reason=$reason, cancelled_at=now()`.
+
+Rules 2–4 are enforced by the **service layer**, which owns the business rules. The repository
+re-checks rule 3 under an atomic `status = 'booked'` guard on the UPDATE, and re-checks rule 4
+against the current clock, so the rule still holds if a request stalls between the two.
 
 ### PATCH /appointments/{id}/reschedule
 
@@ -256,6 +265,11 @@ Runs in **one atomic transaction**. Steps in order:
 Any error → `ROLLBACK`, and the original appointment remains `booked`. A unique-violation on the
 insert → **409 `SLOT_TAKEN`**, not 500. The violation must be detected on the insert *inside* the
 transaction, then surfaced after the rollback.
+
+As with cancel, steps 4 and 5 are business rules and live in the service layer, which checks the
+appointment's state before opening the transaction so that a cancelled appointment is reported as
+a conflict rather than being masked by a validation error about the new slot. The repository
+re-checks the same state under the row lock; that re-check is authoritative.
 
 Rescheduling to the **same** slot is allowed (it cancels and rebooks the same slot; the partial
 index permits this because the original leaves the index when it is cancelled). The doctor and
