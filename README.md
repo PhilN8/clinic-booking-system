@@ -649,24 +649,69 @@ instance, from `render.yaml` in this repository.
    the integration tests actually run rather than skipping
 4. `go build ./...`
 
-**`deploy`** — only on a push to `main`, and only if `test` passed:
-
-1. Build the Docker image and push it to Docker Hub, tagged with the commit SHA and `latest`,
-   using the GitHub Actions build cache
-2. Call Render's deploy hook, which restarts the web service
+**`publish`** — only on a push to `main`, and only if `test` passed: build the Docker image and
+push it to Docker Hub, tagged with the commit SHA and `latest`, using the GitHub Actions build
+cache. It is skipped with a notice if the Docker Hub credentials are not configured.
 
 Pull requests run the checks and never touch the live environment.
 
-**Optional repository secrets.** The deploy job degrades gracefully without them, so a
-misconfigured pipeline never turns `main` red:
+### 6.3 How the deploy is triggered
+
+There is exactly **one** deploy path, and it runs through the pipeline:
+
+```
+PR opened ────► Actions: test ────► must pass to merge
+                      │
+merge to main ───────┴──► Actions: test ──► (passes)
+                                             │
+                                             ▼
+                          Render: autoDeployTrigger: checksPass
+                          Render sees the checks passed on main
+                          and rebuilds the Dockerfile and redeploys
+```
+
+`autoDeployTrigger: checksPass` in `render.yaml` is what closes the loop. Render watches the
+linked branch and waits for its CI checks to pass before it deploys, so a red test suite on
+`main` blocks the release rather than shipping it. The pipeline genuinely gates the deploy
+instead of merely running alongside it.
+
+This is also why the CI workflow does **not** call Render's deploy hook. Render's own
+`checksPass` trigger already fires once the checks pass, and calling the hook as well would
+deploy twice.
+
+**Optional repository secrets.** Every job that needs a secret degrades gracefully without it, so
+a misconfigured pipeline never turns `main` red:
 
 | Secret | Purpose | If unset |
 |---|---|---|
-| `DOCKERHUB_USERNAME` | Docker Hub account to push the image to | The image push is skipped with a notice |
+| `DOCKERHUB_USERNAME` | Docker Hub account to publish the image to | The image push is skipped with a notice |
 | `DOCKERHUB_TOKEN` | Docker Hub access token | As above |
-| `RENDER_DEPLOY_HOOK` | Render deploy hook URL, from the service's settings | Render's own auto-deploy handles the deploy |
+| `RENDER_API_KEY` | Render API key, to validate the blueprint | The blueprint validation is skipped with a notice |
+| `RENDER_WORKSPACE_ID` | Render workspace ID, to validate the blueprint | As above |
 
-### 6.3 Launching it on Render
+Render's deploy hook is still available in the dashboard for a manual redeploy, but nothing in
+the pipeline needs it.
+
+### 6.4 Validating the blueprint
+
+`render.yaml` is validated in CI by Render's own
+[Validate Blueprint endpoint](https://api-docs.render.com/reference/validate-blueprint), which
+checks the syntax and structure and reports the resources the Blueprint would create. That turns
+a broken Blueprint into a failed pull request check rather than a failed deployment.
+
+The endpoint needs a Render API key and the workspace ID, so the step is skipped with a notice
+until both are set as repository secrets. To set them: **Render → Workspace Settings → API
+Keys** for the key, and **Workspace Settings → General** for the workspace ID.
+
+The Blueprint can also be validated locally against Render's published JSON Schema, which is
+what the IDE's YAML extension uses:
+
+```bash
+curl -fsS https://render.com/schema/render.yaml.json -o schema.json
+# then point your YAML extension at it, or use a JSON Schema validator
+```
+
+### 6.5 Launching it on Render
 
 There are two ways in. The blueprint is the one to prefer because it creates the database and
 wires `DATABASE_URL` for you.
@@ -676,18 +721,20 @@ wires `DATABASE_URL` for you.
 ```bash
 # 1. In Render: New -> Blueprint, point it at the repository, and apply.
 #    render.yaml creates both the web service and the PostgreSQL instance,
-#    sets runtime: docker and autoDeploy: true, and wires DATABASE_URL.
+#    sets runtime: docker and autoDeployTrigger: checksPass, and wires
+#    DATABASE_URL.
 ```
 
 **Option B — the service already exists**
 
-If the service was created from the dashboard, check two settings under **Settings -> Build &
+If the service was created from the dashboard, check these settings under **Settings -> Build &
 Deploy**:
 
 1. **Runtime must be `Docker`.** Render also offers a native Go runtime, which ignores the
    `Dockerfile` and runs `go build -tags netgo -ldflags '-s -w' -o app` in the repository root.
    That fails here, because the main package lives in `./cmd/api`, not at the root.
-2. **Auto-Deploy must be on, with the branch set to `main`.**
+2. **Auto-Deploy must be `checksPass`**, with the branch set to `main`. `checksPass` is what
+   makes Render wait for the CI checks before redeploying.
 
 If you would rather keep the native Go runtime, use these build settings instead of switching:
 
@@ -699,7 +746,11 @@ If you would rather keep the native Go runtime, use these build settings instead
 Either way, make sure the service has `DATABASE_URL` pointing at a Postgres instance and
 `CLINIC_TZ` set to `Africa/Nairobi`. Render injects `PORT` itself.
 
-### 6.4 Upgrading an existing Render database
+> **Keeping the service name matters.** The Blueprint adopts an existing service when its `name`
+> matches exactly. `clinic-booking-system-1` is the name Render generated; if the Blueprint
+> names it something else, Render creates a *second* service and leaves the original running.
+
+### 6.6 Upgrading an existing Render database
 
 `postgresMajorVersion` in `render.yaml` applies when the database is **created**. It does not
 migrate a database that already exists, so an instance created against the previous
@@ -715,14 +766,14 @@ Render offers two routes, from its own documentation:
   web service's `DATABASE_URL`, and redeploy. The migrations and the seed run automatically on
   boot.
 
-### 6.5 Deployment status
+### 6.7 Deployment status
 
 > **The live URL has not been filled in yet.** Everything needed is in the repository: the
 > `render.yaml` blueprint, the `Dockerfile`, the CI workflow and the deployment procedure in
 > 6.3. The one thing missing from the repository is the URL itself, which does not exist until
 > the service has deployed successfully for the first time.
 
-### 6.6 Troubleshooting
+### 6.8 Troubleshooting
 
 **`go: go.mod file not found in current directory or any parent directory`**
 
