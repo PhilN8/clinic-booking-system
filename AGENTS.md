@@ -36,7 +36,7 @@ appointments, multi-tenant support.
 |---|---|---|
 | Language | Go 1.24+ (`go.mod`), toolchain 1.27 | Assessment permits Go. |
 | Router | **stdlib `net/http`** | Go 1.22+ `ServeMux` natively supports `GET /doctors/{id}/availability` + `r.PathValue("id")`. Zero dependencies, no CVE surface. |
-| DB | **PostgreSQL 15+** via `database/sql` + `github.com/jackc/pgx/v5/stdlib` | The assessment allows any DB, but the concurrency requirements (partial unique index, real concurrent transactions) are Postgres-specific and worth demonstrating. |
+| DB | **PostgreSQL 18** via `database/sql` + `github.com/jackc/pgx/v5/stdlib` | The assessment allows any DB, but the concurrency requirements (partial unique index, real concurrent transactions) are Postgres-specific and worth demonstrating. |
 | Migrations | Plain `.sql` files, `//go:embed`, applied idempotently on boot with a `schema_migrations` table | No CLI dependency; works identically in Docker, CI, and local dev. |
 | Tests | stdlib `testing`, table-driven | |
 | Deploy | **Render** (Docker runtime + managed Postgres) | Free tier, GitHub auto-deploy on merge, health checks, `PORT` injection. |
@@ -465,15 +465,17 @@ unset, so `go test ./...` still passes without a DB):
 
 ### `.github/workflows/ci.yml`
 
-- **On `pull_request`:** `go vet ./...`, `go test -race ./...` (with a `postgres:16` service
+- **On `pull_request`:** `go vet ./...`, `go test -race ./...` (with a `postgres:18` service
   container for the integration tests), `go build ./...`.
-- **On push to `main`:** same checks, then build & push the Docker image to Docker Hub, then hit
-  Render's **deploy hook** URL (stored as a repository secret) to trigger the live deploy.
+- **On push to `main`:** the same checks, then build & push the Docker image to Docker Hub and
+  call Render's **deploy hook** URL (a repository secret). Both steps are optional: if the secrets
+  are absent the job reports a notice and skips them, and Render's own auto-deploy handles the
+  deploy, so `main` never goes red on optional configuration.
 - Document in the README: which branch triggers the deploy, what the pipeline does, and the live URL.
 
 ### `docker-compose.yml`
 
-Local dev only: a `postgres:16` service with a named volume, a healthcheck, and the DSN that
+Local dev only: a `postgres:18` service with a named volume, a healthcheck, and the DSN that
 matches `DATABASE_URL` in `.env.example`. Include a `.env.example`.
 
 ---
