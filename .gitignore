@@ -1,0 +1,20 @@
+# Build artifacts
+bin/
+*.exe
+*.out
+/api
+
+# Environment
+.env
+.env.local
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# Go
+vendor/
+*.test
+coverage.out
