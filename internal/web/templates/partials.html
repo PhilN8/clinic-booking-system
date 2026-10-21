@@ -1,0 +1,30 @@
+{{define "dateStrip"}}
+<form class="date-form" method="get" action="{{.DateFormAction}}">
+  <fieldset class="date-strip">
+    <legend class="date-strip__legend">Choose a date</legend>
+    <div class="date-strip__track">
+      {{range .Dates}}
+      <label class="date-chip{{if .Selected}} date-chip--selected{{end}}">
+        <input type="radio" name="date" value="{{.Value}}"{{if .Selected}} checked{{end}}>
+        <span class="date-chip__weekday">{{.Weekday}}{{if .Today}}<span class="date-chip__today">Today</span>{{end}}</span>
+        <span class="date-chip__day">{{.DayMonth}}</span>
+      </label>
+      {{end}}
+    </div>
+  </fieldset>
+  <button class="button button--secondary date-form__submit" type="submit" data-hide-with-js>Show times</button>
+</form>
+{{end}}
+
+{{define "slotGrid"}}
+<fieldset class="slot-grid">
+  <legend class="visually-hidden">Choose a time</legend>
+  {{range .Slots}}
+  <label class="slot slot--{{.Status}}{{if .Bookable}} slot--bookable{{end}}{{if eq .Value $.SelectedSlot}} slot--selected{{end}}">
+    <input type="radio" name="start_time" value="{{.Value}}" aria-label="{{.AccessibleName}}"{{if not .Bookable}} disabled{{end}}{{if eq .Value $.SelectedSlot}} checked{{end}}>
+    <span class="slot__label">{{.Label}}</span>
+    {{if .Note}}<span class="slot__note">{{.Note}}</span>{{end}}
+  </label>
+  {{end}}
+</fieldset>
+{{end}}

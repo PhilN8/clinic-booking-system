@@ -1,0 +1,23 @@
+{{define "content"}}
+<section class="page-header">
+  <h1 class="page-header__title">Cancel this appointment?</h1>
+  <p class="page-header__lede">{{.Doctor.Name}}, {{.DateLabel}} at {{.TimeLabel}}.</p>
+</section>
+
+<div class="confirm-panel">
+  <p class="confirm-panel__lead">Cancelling frees the time for somebody else. If you can still come, keeping it is better.</p>
+
+  <form method="post" action="/appointments/{{.Appointment.ID}}/cancel">
+    <div class="field">
+      <label class="field__label" for="reason">Why are you cancelling? <span class="field__optional">optional</span></label>
+      <textarea class="field__input" id="reason" name="reason" rows="3" maxlength="500"></textarea>
+      <p class="field__hint">It helps us improve, but you do not have to say.</p>
+    </div>
+
+    <div class="button-row">
+      <button class="button button--destructive" type="submit">Yes, cancel this appointment</button>
+      <a class="button button--ghost" href="/patients/{{.PatientID}}/appointments">Keep my appointment</a>
+    </div>
+  </form>
+</div>
+{{end}}

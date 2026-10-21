@@ -69,7 +69,7 @@ func newAppointmentResponse(a models.Appointment) appointmentResponse {
 }
 
 // bookAppointment handles POST /appointments.
-func (a *API) bookAppointment(w http.ResponseWriter, r *http.Request) {
+func (a *API) BookAppointment(w http.ResponseWriter, r *http.Request) {
 	var request bookAppointmentRequest
 	if err := decodeJSON(w, r, &request); err != nil {
 		httperr.Write(w, err)
@@ -91,7 +91,7 @@ func (a *API) bookAppointment(w http.ResponseWriter, r *http.Request) {
 }
 
 // cancelAppointment handles PATCH /appointments/{id}/cancel.
-func (a *API) cancelAppointment(w http.ResponseWriter, r *http.Request) {
+func (a *API) CancelAppointment(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		httperr.Write(w, err)
@@ -119,7 +119,7 @@ func (a *API) cancelAppointment(w http.ResponseWriter, r *http.Request) {
 }
 
 // rescheduleAppointment handles PATCH /appointments/{id}/reschedule.
-func (a *API) rescheduleAppointment(w http.ResponseWriter, r *http.Request) {
+func (a *API) RescheduleAppointment(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		httperr.Write(w, err)

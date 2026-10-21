@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · {{.SiteName}}</title>
+  <meta name="description" content="{{.Description}}">
+  <meta name="color-scheme" content="light">
+  <style>
+    /* The palette comes from design/tokens.json so the stylesheet cannot
+       drift away from the colours the test suite verifies. */
+    :root {
+{{.CSSVariables}}
+    }
+  </style>
+  <link rel="stylesheet" href="/assets/app.css">
+  <script src="/assets/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+
+  <header class="site-header">
+    <div class="container site-header__inner">
+      <a class="brand" href="/doctors">
+        <span class="brand__mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+            <path d="M12 5v14M5 12h14"/>
+          </svg>
+        </span>
+        <span class="brand__name">{{.SiteName}}</span>
+      </a>
+
+      <nav class="site-nav" aria-label="Main">
+        <a href="/doctors"{{if .NavDoctors}} aria-current="page"{{end}}>Doctors</a>
+        <a href="/patients/{{.PatientID}}/appointments"{{if .NavAppointments}} aria-current="page"{{end}}>My appointments</a>
+      </nav>
+
+      <form class="patient-picker" method="get" action="/patients/{{.PatientID}}/appointments">
+        <label class="patient-picker__label" for="patient">Booking for</label>
+        <select class="patient-picker__select" id="patient" name="patient_id" data-auto-submit>
+          {{range .Patients}}
+          <option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>
+          {{end}}
+        </select>
+        <noscript><button class="button button--secondary button--small" type="submit">Go</button></noscript>
+      </form>
+    </div>
+  </header>
+
+  <main id="main" class="container site-main">
+    {{if .Error}}
+    <div class="alert alert--{{.Error.Tone}}" role="alert">
+      <span class="alert__icon" aria-hidden="true">{{if eq .Error.Tone "danger"}}✕{{else if eq .Error.Tone "warning"}}⚠{{else}}ℹ{{end}}</span>
+      <div class="alert__body">
+        {{if .Error.Title}}<strong>{{.Error.Title}}</strong>{{end}}
+        <p>{{.Error.Message}}</p>
+      </div>
+    </div>
+    {{end}}
+
+    {{if .Notice}}
+    <div class="alert alert--{{.Notice.Tone}}" role="status">
+      <span class="alert__icon" aria-hidden="true">ℹ</span>
+      <div class="alert__body">
+        {{if .Notice.Title}}<strong>{{.Notice.Title}}</strong>{{end}}
+        <p>{{.Notice.Message}}</p>
+      </div>
+    </div>
+    {{end}}
+
+    {{template "content" .}}
+  </main>
+
+  <footer class="site-footer">
+    <div class="container site-footer__inner">
+      <div>
+        <p class="site-footer__name">{{.SiteName}}</p>
+        <p class="site-footer__detail">Plot 12, Kenyatta Avenue, Nairobi</p>
+        <p class="site-footer__detail">+254 20 000 0000</p>
+      </div>
+      <p class="site-footer__note">
+        This is a demonstration booking system. It does not store medical records and it is not
+        connected to a real patient system.
+      </p>
+    </div>
+  </footer>
+</body>
+</html>
