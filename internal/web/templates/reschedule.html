@@ -1,0 +1,45 @@
+{{define "content"}}
+<section class="page-header">
+  <h1 class="page-header__title">Move this appointment</h1>
+  <p class="page-header__lede">
+    {{.Doctor.Name}}, {{.ReschedulingDate}} at {{.ReschedulingTime}}.
+    Choose the new time below.
+  </p>
+</section>
+
+{{template "dateStrip" .}}
+
+<section class="schedule" aria-labelledby="schedule-heading">
+  <h2 class="schedule__heading" id="schedule-heading">
+    New time on <span class="schedule__date">{{.DateLabel}}</span>
+  </h2>
+
+  <p class="schedule__note">
+    <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+    </svg>
+    {{.LeadTimeNote}}
+  </p>
+
+  {{if .AvailableCount}}
+  <p class="schedule__count" role="status">
+    <strong>{{.AvailableCount}}</strong> {{if eq .AvailableCount 1}}time{{else}}times{{end}} available on this day.
+  </p>
+
+  <form class="booking-form" method="post" action="{{.Action}}">
+    <input type="hidden" name="date" value="{{.Date}}">
+
+    {{template "slotGrid" .}}
+
+    <button class="button button--primary" type="submit">Move appointment</button>
+    <a class="button button--ghost" href="/patients/{{.PatientID}}/appointments">Keep the current time</a>
+  </form>
+  {{else}}
+  <div class="empty-state">
+    <h3>No times available on this day</h3>
+    <p>Please choose another date, or keep your current appointment.</p>
+  </div>
+  <a class="button button--ghost" href="/patients/{{.PatientID}}/appointments">Keep the current time</a>
+  {{end}}
+</section>
+{{end}}

@@ -1,7 +1,10 @@
-// Package handlers is the HTTP transport layer.
+// Package handlers is the HTTP transport layer for the JSON API.
 //
 // Handlers decode the request, call the service and encode the response.
 // They contain no business rules and no SQL.
+//
+// The route table itself lives in cmd/api, because the API and the patient
+// facing site share some paths and the router has to negotiate between them.
 package handlers
 
 import (
@@ -21,36 +24,20 @@ type HealthChecker interface {
 	PingContext(ctx context.Context) error
 }
 
-// API bundles the HTTP endpoints behind one router.
+// API bundles the JSON API endpoints.
 type API struct {
 	svc    service.API
 	health HealthChecker
 	logger *slog.Logger
 }
 
-// NewRouter builds the HTTP router.
-//
-// Go 1.22's ServeMux understands method-and-wildcard patterns such as
-// "GET /doctors/{id}/availability", so no third-party router is needed.
-func NewRouter(svc service.API, health HealthChecker, logger *slog.Logger) http.Handler {
-	api := &API{svc: svc, health: health, logger: logger}
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("GET /healthz", api.healthz)
-	mux.HandleFunc("POST /appointments", api.bookAppointment)
-	mux.HandleFunc("PATCH /appointments/{id}/cancel", api.cancelAppointment)
-	mux.HandleFunc("PATCH /appointments/{id}/reschedule", api.rescheduleAppointment)
-	mux.HandleFunc("GET /doctors", api.listDoctors)
-	mux.HandleFunc("GET /doctors/{id}", api.getDoctor)
-	mux.HandleFunc("GET /doctors/{id}/availability", api.availability)
-	mux.HandleFunc("GET /patients/{id}", api.getPatient)
-	mux.HandleFunc("GET /patients/{id}/appointments", api.patientAppointments)
-
-	return api.withMiddleware(mux)
+// New builds the API handlers.
+func New(svc service.API, health HealthChecker, logger *slog.Logger) *API {
+	return &API{svc: svc, health: health, logger: logger}
 }
 
-// withMiddleware wraps the router in request logging and panic recovery.
-func (a *API) withMiddleware(next http.Handler) http.Handler {
+// Middleware wraps the router in request logging and panic recovery.
+func (a *API) Middleware(next http.Handler) http.Handler {
 	return a.recoverer(a.logRequests(next))
 }
 

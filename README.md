@@ -6,9 +6,15 @@ never be double-booked.
 
 Built in Go with PostgreSQL. Standard library only, plus the Postgres driver.
 
-The patient-facing site that will sit in front of this API has its own design system in
-[`design.md`](design.md), with the colour tokens in [`design/tokens.json`](design/tokens.json)
-and their accessibility contrast ratios enforced by the test suite.
+The same binary also serves the **patient-facing site**, rendered on the server and styled from
+the design tokens. Its design language is documented in [`design.md`](design.md), with the colour
+tokens in [`design/tokens.json`](design/tokens.json) and their accessibility contrast ratios
+enforced by the test suite.
+
+| | |
+|---|---|
+| **Live site** | <https://clinic-booking-system-1-yu19.onrender.com/doctors> |
+| **Live API** | <https://clinic-booking-system-1-yu19.onrender.com/api/doctors> |
 
 ---
 
@@ -637,10 +643,26 @@ instance, from `render.yaml` in this repository.
 
 | | |
 |---|---|
-| **Live URL** | _pending — see 6.4_ |
+| **Live site** | <https://clinic-booking-system-1-yu19.onrender.com/doctors> |
+| **Live API** | <https://clinic-booking-system-1-yu19.onrender.com/api/doctors> |
+| **Health check** | <https://clinic-booking-system-1-yu19.onrender.com/healthz> |
 | **Deploy trigger** | a push to `main` |
-| **Health check** | `GET /healthz` |
 | **Database** | Render managed PostgreSQL 18, free plan |
+
+### 6.1a One server, two faces
+
+The same binary serves both the site and the JSON API, on one port. Three paths exist as both
+an endpoint and a page:
+
+| Path | Browser (`Accept: text/html`) | API client |
+|---|---|---|
+| `GET /doctors` | the doctor list | the doctor list as JSON |
+| `GET /doctors/{id}` | the availability and booking page | the doctor as JSON |
+| `GET /patients/{id}/appointments` | the appointment list | the appointments as JSON |
+
+They negotiate on the `Accept` header. A browser sends `text/html` and gets the page; `curl`
+sends `*/*` and gets JSON, so the examples in §3.3 and §4 work unchanged. The whole JSON API is
+also mounted under **`/api`**, where it is always JSON and never negotiates.
 
 ### 6.2 The pipeline
 
@@ -773,10 +795,9 @@ Render offers two routes, from its own documentation:
 
 ### 6.7 Deployment status
 
-> **The live URL has not been filled in yet.** Everything needed is in the repository: the
-> `render.yaml` blueprint, the `Dockerfile`, the CI workflow and the deployment procedure in
-> 6.3. The one thing missing from the repository is the URL itself, which does not exist until
-> the service has deployed successfully for the first time.
+The service is **live** at <https://clinic-booking-system-1-yu19.onrender.com>. It runs on
+Render's Docker runtime, builds from the `Dockerfile`, and redeploys automatically on a push to
+`main` once the CI checks pass.
 
 ### 6.8 Troubleshooting
 
@@ -962,6 +983,11 @@ The patient-facing site has a documented design system in [`design.md`](design.m
 palette, typography, spacing, component inventory, the booking flow, content tone and the
 WCAG 2.2 AA checklist, and it maps each component back to the endpoint it is built from.
 
+The site is **rendered on the server** with Go templates, so it works without JavaScript and the
+JSON API contract is untouched. The stylesheet contains no hex value: the palette is generated
+from `design/tokens.json` into CSS custom properties at request time, so it cannot drift from
+the tokens.
+
 The colour decisions are **enforced by the test suite** rather than asserted in prose.
 `design/tokens.json` is the source of truth, and `design/tokens_test.go` fails `go test ./...` if
 any documented pairing drops below its contrast requirement:
@@ -980,6 +1006,7 @@ Two decisions in there are worth calling out here because they constrain the API
   colour; the only colour in the slot grid is the selection. Green is reserved for a completed
   action and red for cancellation or error, which keeps green and red from being the one pair a
   colour-blind reader has to separate.
-- **The interface has to explain the one-hour rule.** `GET /availability` hides slots inside the
-  lead time and `POST /appointments` refuses them, so the site states the rule plainly above the
-  grid rather than leaving the patient to think it is a bug.
+- **The interface has to explain the one-hour rule.** The grid shows every slot with its status —
+  available, taken, too soon, or past — and states the rule plainly above it, rather than leaving
+  the patient to think it is a bug. The public availability endpoint still returns only the free
+  slots; the richer grid comes from an internal service method that applies the same rules.

@@ -24,7 +24,7 @@ type patientAppointmentsResponse struct {
 }
 
 // getPatient handles GET /patients/{id}.
-func (a *API) getPatient(w http.ResponseWriter, r *http.Request) {
+func (a *API) GetPatient(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		httperr.Write(w, err)
@@ -44,7 +44,7 @@ func (a *API) getPatient(w http.ResponseWriter, r *http.Request) {
 // By default the list contains only booked appointments that have not started
 // yet. Passing ?include_cancelled=true also returns cancelled appointments,
 // which is what makes a reschedule's audit trail visible.
-func (a *API) patientAppointments(w http.ResponseWriter, r *http.Request) {
+func (a *API) PatientAppointments(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		httperr.Write(w, err)

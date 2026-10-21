@@ -1,0 +1,33 @@
+{{define "content"}}
+<section class="page-header">
+  <h1 class="page-header__title">Book an appointment</h1>
+  <p class="page-header__lede">Choose a doctor to see the times they are available.</p>
+</section>
+
+{{if .Doctors}}
+<ul class="doctor-list">
+  {{range .Doctors}}
+  <li>
+    <a class="doctor-card" href="/doctors/{{.ID}}">
+      <span class="doctor-card__avatar" aria-hidden="true">{{.Initials}}</span>
+      <span class="doctor-card__body">
+        <span class="doctor-card__name">{{.Name}}</span>
+        <span class="doctor-card__detail">{{.Detail}}</span>
+      </span>
+      <span class="doctor-card__cta">
+        View availability
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M5 12h14M13 6l6 6-6 6"/>
+        </svg>
+      </span>
+    </a>
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<div class="empty-state">
+  <h2>No doctors are listed yet</h2>
+  <p>Please check back, or call the clinic to book an appointment.</p>
+</div>
+{{end}}
+{{end}}

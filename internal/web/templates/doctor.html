@@ -1,0 +1,58 @@
+{{define "content"}}
+<section class="page-header page-header--with-avatar">
+  <span class="doctor-card__avatar doctor-card__avatar--large" aria-hidden="true">{{.Doctor.Initials}}</span>
+  <div>
+    <h1 class="page-header__title">{{.Doctor.Name}}</h1>
+    <p class="page-header__lede">Available {{.Doctor.Hours}}</p>
+  </div>
+</section>
+
+{{template "dateStrip" .}}
+
+<section class="schedule" aria-labelledby="schedule-heading">
+  <h2 class="schedule__heading" id="schedule-heading">
+    Times on <span class="schedule__date">{{.DateLabel}}</span>
+  </h2>
+
+  <p class="schedule__note">
+    <svg class="icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>
+    </svg>
+    {{.LeadTimeNote}}
+  </p>
+
+  {{if .AvailableCount}}
+  <p class="schedule__count" role="status">
+    <strong>{{.AvailableCount}}</strong> {{if eq .AvailableCount 1}}time{{else}}times{{end}} available on this day.
+  </p>
+
+  <form class="booking-form" method="post" action="{{.Action}}">
+    <input type="hidden" name="date" value="{{.Date}}">
+
+    {{template "slotGrid" .}}
+
+    <div class="field field--inline">
+      <label class="field__label" for="patient_id">Who is this appointment for?</label>
+      <select class="field__input" id="patient_id" name="patient_id" required>
+        {{range .Patients}}
+        <option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+      <p class="field__hint">This demonstration has no sign-in, so you choose who you are booking for.</p>
+    </div>
+
+    <button class="button button--primary" type="submit">Book appointment</button>
+  </form>
+  {{else if .HasSlots}}
+  <div class="empty-state">
+    <h3>No times left on this day</h3>
+    <p>Every appointment on {{.DateLabel}} has been taken. Please choose another date.</p>
+  </div>
+  {{else}}
+  <div class="empty-state">
+    <h3>No appointments on this day</h3>
+    <p>{{.Doctor.Name}} does not have appointments on {{.DateLabel}}. Please choose another date.</p>
+  </div>
+  {{end}}
+</section>
+{{end}}

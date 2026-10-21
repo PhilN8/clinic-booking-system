@@ -286,6 +286,21 @@ blindly.
 
 Each component names the API it is built from, so the design and the backend cannot drift apart.
 
+**The site is rendered on the server.** The pages are Go templates served by the same binary as
+the API, styled with a stylesheet that references the design tokens directly. That has three
+consequences worth stating up front:
+
+- **The site works without JavaScript.** Every action is a form that submits and a page that
+  reloads. The script only removes a click: it submits the date strip when a day is chosen, and
+  it moves the focus with the arrow keys. Nothing depends on it.
+- **The API contract did not change.** The site reads the same data through the service layer,
+  so the JSON API that the assessment specifies is untouched. Three paths exist as both a page
+  and an endpoint, and they negotiate on the `Accept` header: a browser gets the page, an API
+  client gets JSON. The JSON API is also mounted under `/api`, where it is always JSON.
+- **The colours come from `design/tokens.json`**, generated into CSS custom properties at
+  request time. The stylesheet contains no hex value, so it cannot drift from the palette the
+  test suite verifies.
+
 ### 7.1 Doctor card — `GET /doctors`
 
 The Cleveland Clinic "Find a Provider" pattern.
@@ -326,6 +341,16 @@ the lead time, the interface shows those slots disabled and states the rule plai
 grid: *"Appointments must be booked at least 1 hour in advance."* A rule the patient cannot see
 is a rule they will think is a bug.
 
+> **A note on where the grid's data comes from.** The public availability endpoint returns only
+> the slots that are **free**, because that is what an API client needs. The site needs the whole
+> grid, because a patient who cannot see why a slot is missing cannot tell the difference between
+> "somebody took it" and "the clinic is closed". So the service layer exposes a `Schedule` that
+> returns every slot with its status — available, taken, too soon, or past — and the site renders
+> that. The public endpoint is unchanged.
+>
+> The two are computed from the same rules, so the grid can never offer a slot that
+> `POST /appointments` would refuse.
+
 ### 7.4 Booking summary and confirmation — `POST /appointments`
 
 - A sticky summary panel on desktop, a collapsible summary above the button on mobile.
@@ -364,13 +389,21 @@ is a rule they will think is a bug.
 ### 7.8 The one interaction that needs care
 
 `GET /availability` is **advisory** — it can be stale by the time the patient presses *Book*, and
-the API enforces the real rule at insert time. So:
+the API enforces the real rule at insert time.
 
-- On a **409 `SLOT_TAKEN`**, do not show a generic error. Re-fetch availability, mark the
-  offending slot as taken, keep the rest of the selection, and say: *"That slot was just taken.
-  Here are the next available times."* The patient loses their place in no way at all.
-- On a **422 `TOO_SOON`**, re-fetch availability and explain the lead-time rule.
+Because the site is rendered on the server, the recovery happens there rather than in the
+browser:
+
+- On a **409 `SLOT_TAKEN`**, the handler re-reads the schedule and re-renders the day. The slot
+  the patient wanted is now shown as **taken**, the rest of the day is unchanged, and the alert
+  says: *"That time was just taken by someone else. The other times below are still available."*
+  The patient loses nothing but the one slot, and the page they were on is still the page they
+  are on.
+- On a **422 `TOO_SOON`**, the same thing happens with the lead-time rule explained.
 - The availability response is never cached across a date change.
+
+If the site were a client-side application the same logic would run in the browser against the
+JSON endpoint. The design is the same; only the location of the code differs.
 
 ---
 
@@ -388,6 +421,15 @@ Three steps and a confirmation. Not four steps and a confirmation.
   patient loses the booking they just made.
 - **Never block the flow with a consent or cookie banner.** Show it inline, below the fold, and
   let the patient book. This is the single biggest conversion leak on healthcare sites.
+
+**Who the patient is.** The API has no authentication, so the site cannot know who is browsing.
+Rather than pretend otherwise, the patient is an **explicit choice**: a picker in the header and
+in the booking form, remembered in a cookie between pages, with a line of copy that says so —
+*"This demonstration has no sign-in, so you choose who you are booking for."* Hiding that
+behind a magic identity would be dishonest about what the system does.
+
+This is the open question in §15, and the honest answer is that the site demonstrates the
+booking logic, not an authenticated patient portal.
 
 ---
 
@@ -545,11 +587,13 @@ output and must be regenerated with it — never hand-edited.
 
 ## 15. Open questions
 
-Things a real project would settle before building, listed so they are not lost:
+Things a real project would settle before building, listed so they are not lost. The first one is
+the one that actually matters.
 
 - **Does the site need authentication?** The API has none. If patients are to see their own
   appointments rather than all of them, `GET /patients/{id}/appointments` needs an identity
-  behind it. This is the largest open question and it affects the whole flow.
+  behind it. The site currently makes the patient an explicit choice, which is honest but is not
+  security. This is the largest open question and it affects the whole flow.
 - **Is there a waitlist?** The API models availability as free or taken. A waitlist is a
   different data model and a different flow.
 - **Which timezone is shown to a patient travelling?** The API stores clinic wall-clock time.
@@ -557,3 +601,5 @@ Things a real project would settle before building, listed so they are not lost:
   labelled as such.
 - **Are appointments ever longer than 30 minutes?** The API fixes every appointment at 30
   minutes. A 45-minute consultation would need a schema change, not just a UI change.
+- **Should the doctor list carry photos and specialties?** The API has neither. The card shows
+  initials and working hours, which is honest, but a real clinic site would want both.

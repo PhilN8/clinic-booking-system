@@ -89,11 +89,27 @@ type stubHealth struct{ err error }
 
 func (h stubHealth) PingContext(context.Context) error { return h.err }
 
-// newTestRouter builds a router backed by the given stub.
+// newTestRouter builds a router with just the JSON API routes.
+//
+// The full route table lives in cmd/api, where the API and the site are
+// negotiated against each other; this is the API half of it.
 func newTestRouter(t *testing.T, stub *stubService) http.Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	return NewRouter(stub, stubHealth{}, logger)
+	api := New(stub, stubHealth{}, logger)
+
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", api.Healthz)
+	mux.HandleFunc("POST /appointments", api.BookAppointment)
+	mux.HandleFunc("PATCH /appointments/{id}/cancel", api.CancelAppointment)
+	mux.HandleFunc("PATCH /appointments/{id}/reschedule", api.RescheduleAppointment)
+	mux.HandleFunc("GET /doctors", api.ListDoctors)
+	mux.HandleFunc("GET /doctors/{id}", api.GetDoctor)
+	mux.HandleFunc("GET /doctors/{id}/availability", api.Availability)
+	mux.HandleFunc("GET /patients/{id}", api.GetPatient)
+	mux.HandleFunc("GET /patients/{id}/appointments", api.PatientAppointments)
+
+	return api.Middleware(mux)
 }
 
 // sampleAppointment is a booked appointment used in the response assertions.
@@ -465,9 +481,12 @@ func TestHealthz(t *testing.T) {
 
 func TestHealthzReportsAnUnhealthyDatabase(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	router := NewRouter(&stubService{}, stubHealth{err: context.DeadlineExceeded}, logger)
+	api := New(&stubService{}, stubHealth{err: context.DeadlineExceeded}, logger)
 
-	recorder := do(t, router, http.MethodGet, "/healthz", "")
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /healthz", api.Healthz)
+
+	recorder := do(t, api.Middleware(mux), http.MethodGet, "/healthz", "")
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusServiceUnavailable)
 	}

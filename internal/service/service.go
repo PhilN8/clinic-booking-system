@@ -24,6 +24,7 @@ type Repository interface {
 	DoctorByID(ctx context.Context, id int64) (*models.Doctor, error)
 	ListDoctors(ctx context.Context) ([]models.Doctor, error)
 	PatientByID(ctx context.Context, id int64) (*models.Patient, error)
+	ListPatients(ctx context.Context) ([]models.Patient, error)
 	CreateAppointment(ctx context.Context, a *models.Appointment) (*models.Appointment, error)
 	AppointmentByID(ctx context.Context, id int64) (*models.Appointment, error)
 	BookedAppointmentsForDoctor(ctx context.Context, doctorID int64, date time.Time) ([]models.Appointment, error)

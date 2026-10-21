@@ -25,7 +25,7 @@ func newDoctorResponse(d models.Doctor) doctorResponse {
 }
 
 // listDoctors handles GET /doctors.
-func (a *API) listDoctors(w http.ResponseWriter, r *http.Request) {
+func (a *API) ListDoctors(w http.ResponseWriter, r *http.Request) {
 	doctors, err := a.svc.ListDoctors(r.Context())
 	if err != nil {
 		a.fail(w, r, err)
@@ -40,7 +40,7 @@ func (a *API) listDoctors(w http.ResponseWriter, r *http.Request) {
 }
 
 // getDoctor handles GET /doctors/{id}.
-func (a *API) getDoctor(w http.ResponseWriter, r *http.Request) {
+func (a *API) GetDoctor(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		httperr.Write(w, err)
@@ -56,7 +56,7 @@ func (a *API) getDoctor(w http.ResponseWriter, r *http.Request) {
 }
 
 // availability handles GET /doctors/{id}/availability?date=YYYY-MM-DD.
-func (a *API) availability(w http.ResponseWriter, r *http.Request) {
+func (a *API) Availability(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
 		httperr.Write(w, err)

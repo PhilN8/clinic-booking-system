@@ -1,0 +1,38 @@
+{{define "content"}}
+<section class="page-header">
+  <h1 class="page-header__title">Your appointments</h1>
+  <p class="page-header__lede">Appointments for {{.Patient.Name}}.</p>
+</section>
+
+{{if .Appointments}}
+<ul class="appointment-list">
+  {{range .Appointments}}
+  <li class="appointment-card appointment-card--{{.StatusTone}}">
+    <span class="appointment-card__avatar" aria-hidden="true">{{.DoctorInitials}}</span>
+    <div class="appointment-card__body">
+      <p class="badge badge--{{.StatusTone}}">
+        <span class="badge__icon" aria-hidden="true">{{.StatusIcon}}</span>
+        {{.StatusLabel}}
+      </p>
+      <h2 class="appointment-card__doctor">{{.DoctorName}}</h2>
+      <p class="appointment-card__when">{{.DateLabel}} at {{.TimeLabel}}</p>
+      {{if .CancellationReason}}
+      <p class="appointment-card__reason">Reason: {{.CancellationReason}}</p>
+      {{end}}
+    </div>
+    {{if .IsBooked}}
+    <div class="appointment-card__actions">
+      <a class="button button--secondary button--small" href="/appointments/{{.ID}}/reschedule">Move</a>
+      <a class="button button--destructive button--small" href="/appointments/{{.ID}}/cancel">Cancel</a>
+    </div>
+    {{end}}
+  </li>
+  {{end}}
+</ul>
+{{else}}
+<div class="empty-state">
+  <h2>No appointments yet</h2>
+  <p>You have not booked anything yet. <a href="/doctors">Book an appointment</a>.</p>
+</div>
+{{end}}
+{{end}}
