@@ -9,7 +9,7 @@ serves the patient-facing site.
 
 | | |
 |---|---|
-| **Live site** | <https://clinic-booking-system-1-yu19.onrender.com/doctors> |
+| **Live site** | <https://clinic-booking-system-1-yu19.onrender.com> |
 | **Live API** | <https://clinic-booking-system-1-yu19.onrender.com/api/doctors> |
 
 This file answers sections 1, 3 and 4 of the assessment. The API reference, the local setup, the
@@ -191,7 +191,7 @@ Render runs the service as a Docker web service with a managed PostgreSQL 18 ins
 
 | | |
 |---|---|
-| **Live site** | <https://clinic-booking-system-1-yu19.onrender.com/doctors> |
+| **Live site** | <https://clinic-booking-system-1-yu19.onrender.com> |
 | **Live API** | <https://clinic-booking-system-1-yu19.onrender.com/api/doctors> |
 | **Health check** | <https://clinic-booking-system-1-yu19.onrender.com/healthz> |
 | **Deploy trigger** | a push to `main` |

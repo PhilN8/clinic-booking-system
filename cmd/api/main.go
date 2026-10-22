@@ -146,7 +146,7 @@ func routes(api *handlers.API, site *web.Web) http.Handler {
 	mux.HandleFunc("GET /patients/{id}", api.GetPatient)
 
 	// Site only.
-	mux.HandleFunc("GET /{$}", site.DoctorsPage)
+	mux.HandleFunc("GET /{$}", site.LandingPage)
 	mux.HandleFunc("POST /doctors/{id}/appointments", site.BookAppointment)
 	mux.HandleFunc("GET /appointments/{id}/cancel", site.CancelPage)
 	mux.HandleFunc("POST /appointments/{id}/cancel", site.CancelAppointment)

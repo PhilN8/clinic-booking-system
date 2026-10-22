@@ -5,7 +5,7 @@ the assessment. This file holds what a reviewer needs to run the code and call t
 
 | | |
 |---|---|
-| **Live site** | <https://clinic-booking-system-1-yu19.onrender.com/doctors> |
+| **Live site** | <https://clinic-booking-system-1-yu19.onrender.com> |
 | **Live API** | <https://clinic-booking-system-1-yu19.onrender.com/api/doctors> |
 
 ## Contents

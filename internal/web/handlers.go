@@ -22,6 +22,15 @@ const patientCookie = "clinic_patient"
 // dateStripDays is how many days the date strip shows.
 const dateStripDays = 14
 
+// LandingPage renders the front page.
+func (w *Web) LandingPage(rw http.ResponseWriter, r *http.Request) {
+	data := landingPage{
+		base: w.base(r, "World-class care, and a booking that takes a minute",
+			"Book an appointment with one of our doctors at Nairobi Clinic."),
+	}
+	w.render(rw, http.StatusOK, "landing", data)
+}
+
 // DoctorsPage renders the list of doctors.
 func (w *Web) DoctorsPage(rw http.ResponseWriter, r *http.Request) {
 	doctors, err := w.svc.ListDoctors(r.Context())
@@ -78,7 +87,7 @@ func (w *Web) BookAppointment(rw http.ResponseWriter, r *http.Request) {
 
 	if patientID <= 0 {
 		w.renderDoctor(rw, r, doctorID, date, startTime,
-			&alertView{Tone: "danger", Message: "Please choose who the appointment is for."})
+			&alertView{Tone: "danger", Title: "Who is it for?", Message: "Choose who the appointment is for, then book again."})
 		return
 	}
 
@@ -608,15 +617,15 @@ func pathID(r *http.Request) (int64, error) {
 func alertTitle(code string) string {
 	switch code {
 	case "SLOT_TAKEN":
-		return "That time has gone"
+		return "That time is no longer free"
 	case "TOO_SOON":
 		return "Too soon to book"
 	case "OUTSIDE_WORKING_HOURS":
-		return "Outside working hours"
+		return "Outside the doctor's hours"
 	case "APPOINTMENT_ALREADY_CANCELLED":
 		return "Already cancelled"
 	case "APPOINTMENT_IN_PAST":
-		return "That appointment has already started"
+		return "That appointment has started"
 	default:
 		return ""
 	}

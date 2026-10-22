@@ -88,24 +88,46 @@ func dateValue(t time.Time) string {
 }
 
 // formatError turns an API error into something a patient can act on.
+//
+// Every code gets its own message. Falling back to the API's own text would
+// put phrases like "appointment_date must be a calendar date" in front of
+// someone booking a doctor's appointment, so the API's wording is reserved
+// for API clients.
 func formatError(err error) (message, code string) {
 	var typed *httperr.Error
 	if !errors.As(err, &typed) {
-		return "Something went wrong. Please try again.", "unknown"
+		return "Something went wrong on our side. Please try again, or call the clinic if it keeps happening.", "unknown"
 	}
 
 	switch typed.Code {
 	case httperr.CodeSlotTaken:
-		return "That time was just taken by someone else. The other times below are still available.", typed.Code
+		return "Someone else has just booked that time. The other times below are still available.", typed.Code
 	case httperr.CodeTooSoon:
-		return "Appointments must be booked at least 1 hour in advance. Please choose a later time.", typed.Code
+		return "Appointments need to be booked at least an hour ahead. Please choose a later time.", typed.Code
 	case httperr.CodeSlotNotAligned:
-		return "Appointments start on the hour or the half hour. Please choose one of the times below.", typed.Code
+		return "Appointments start on the hour or the half hour. Please choose one of the times listed below.", typed.Code
+	case httperr.CodeOutsideWorkingHours:
+		return "That time is outside the doctor's working hours. The times listed below are the ones you can book.", typed.Code
+	case httperr.CodeAppointmentCancelled:
+		return "That appointment has already been cancelled.", typed.Code
+	case httperr.CodeAppointmentInPast:
+		return "That appointment has already started, so it cannot be changed.", typed.Code
+	case httperr.CodeDoctorNotFound:
+		return "We could not find that doctor. Pick one from the list and try again.", typed.Code
+	case httperr.CodePatientNotFound:
+		return "We could not find that patient record. Choose a different name from the list.", typed.Code
+	case httperr.CodeAppointmentNotFound:
+		return "We could not find that appointment. It may have been cancelled or moved.", typed.Code
+	case httperr.CodeInvalidDate:
+		return "We could not read that date. Please use the format YYYY-MM-DD.", typed.Code
+	case httperr.CodeInvalidTime:
+		return "We could not read that time. Please choose one of the times listed below.", typed.Code
+	case httperr.CodeInvalidJSON:
+		return "We could not read what you sent. Please refresh the page and try again.", typed.Code
+	case httperr.CodeInvalidRequest:
+		return "Some of the details are missing. Please check the form and try again.", typed.Code
 	default:
-		if typed.Message != "" {
-			return typed.Message, typed.Code
-		}
-		return "Something went wrong. Please try again.", typed.Code
+		return "Something went wrong on our side. Please try again, or call the clinic if it keeps happening.", typed.Code
 	}
 }
 

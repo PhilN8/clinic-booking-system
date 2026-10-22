@@ -341,6 +341,155 @@ img, svg {
   color: var(--info-800);
 }
 
+/* --------------------------------------------------------- landing page */
+
+.hero {
+  padding-block: var(--space-9) var(--space-10);
+  background: var(--brand-50);
+  border-bottom: 1px solid var(--brand-100);
+  border-radius: var(--radius-card);
+  padding-inline: var(--space-6);
+}
+
+@media (min-width: 48rem) {
+  .hero {
+    padding: var(--space-10) var(--space-9);
+  }
+}
+
+.hero__body {
+  max-width: 46rem;
+}
+
+.hero__eyebrow {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--brand-700);
+}
+
+.hero__title {
+  margin-top: var(--space-3);
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 48rem) {
+  .hero__title {
+    font-size: var(--text-4xl);
+  }
+}
+
+.hero__lede {
+  margin-top: var(--space-4);
+  font-size: var(--text-lg);
+  color: var(--neutral-700);
+  max-width: 40ch;
+}
+
+.hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+}
+
+.button--large {
+  min-height: 52px;
+  padding: var(--space-4) var(--space-6);
+  font-size: var(--text-lg);
+}
+
+.highlights {
+  margin-top: var(--space-9);
+}
+
+.highlights__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 48rem) {
+  .highlights__list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.highlight__title {
+  font-size: var(--text-lg);
+  font-weight: 600;
+}
+
+.highlight__body {
+  margin-top: var(--space-2);
+  color: var(--neutral-600);
+}
+
+.steps {
+  margin-top: var(--space-9);
+  padding: var(--space-6);
+  background: var(--neutral-50);
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-card);
+}
+
+@media (min-width: 48rem) {
+  .steps {
+    padding: var(--space-7);
+  }
+}
+
+.steps__heading {
+  font-size: var(--text-xl);
+  font-weight: 700;
+}
+
+.steps__list {
+  list-style: none;
+  margin: var(--space-5) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr;
+  counter-reset: step;
+}
+
+@media (min-width: 48rem) {
+  .steps__list {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.step__number {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-pill);
+  background: var(--brand-600);
+  color: var(--neutral-0);
+  font-weight: 700;
+  font-size: var(--text-sm);
+}
+
+.step__title {
+  margin-top: var(--space-3);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.step__body {
+  margin-top: var(--space-1);
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+}
+
 /* ------------------------------------------------------- doctor listing */
 
 .doctor-list,
@@ -1017,10 +1166,19 @@ textarea.field__input {
   color: var(--neutral-600);
 }
 
-.site-footer__note {
+.site-footer__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.site-footer__nav a {
+  color: var(--neutral-700);
   font-size: var(--text-sm);
-  color: var(--neutral-600);
-  max-width: 40ch;
+}
+
+.site-footer__nav a:hover {
+  color: var(--brand-800);
 }
 
 /* ------------------------------------------------------------- motion */

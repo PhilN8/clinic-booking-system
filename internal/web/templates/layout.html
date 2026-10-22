@@ -21,7 +21,7 @@
 
   <header class="site-header">
     <div class="container site-header__inner">
-      <a class="brand" href="/doctors">
+      <a class="brand" href="/">
         <span class="brand__mark" aria-hidden="true">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
             <path d="M12 5v14M5 12h14"/>
@@ -77,11 +77,12 @@
         <p class="site-footer__name">{{.SiteName}}</p>
         <p class="site-footer__detail">Plot 12, Kenyatta Avenue, Nairobi</p>
         <p class="site-footer__detail">+254 20 000 0000</p>
+        <p class="site-footer__detail">Monday to Friday, 8:00 AM to 6:00 PM</p>
       </div>
-      <p class="site-footer__note">
-        This is a demonstration booking system. It does not store medical records and it is not
-        connected to a real patient system.
-      </p>
+      <nav class="site-footer__nav" aria-label="Footer">
+        <a href="/doctors">Doctors</a>
+        <a href="/patients/{{.PatientID}}/appointments">My appointments</a>
+      </nav>
     </div>
   </footer>
 </body>

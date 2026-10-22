@@ -301,7 +301,26 @@ consequences worth stating up front:
   request time. The stylesheet contains no hex value, so it cannot drift from the palette the
   test suite verifies.
 
-### 7.1 Doctor card — `GET /doctors`
+### 7.1 The landing page
+
+The front page. It exists to make one thing obvious in one glance: this is a clinic, and
+booking takes a minute.
+
+- A hero with the promise, one line of plain copy, and the primary action, **Book an
+  appointment**, pointing at `/doctors`.
+- **One primary action on the page.** A second link to the patient's own appointments is
+  a ghost button, so the call to action is never in doubt. A test asserts that the page
+  contains exactly one primary button.
+- Three short paragraphs on why the clinic is worth choosing. Each pairs a claim with
+  something concrete, because a superlative on its own is filler and a superlative with a
+  specific reason is not.
+- The three-step booking flow as a numbered strip, which is the same sequence the booking
+  pages follow, so the page sets an expectation the rest of the site keeps.
+
+The copy is warm without being inflated. "World-class care" and "exceptional doctors" are
+the register the clinic trades in; the sentences around them carry the specifics.
+
+### 7.2 Doctor card - `GET /doctors`
 
 The Cleveland Clinic "Find a Provider" pattern.
 
@@ -311,7 +330,7 @@ The Cleveland Clinic "Find a Provider" pattern.
   clickable card is a keyboard trap.
 - One primary action per card: **View availability**.
 
-### 7.2 Date strip — `GET /doctors/{id}/availability?date=`
+### 7.3 Date strip — `GET /doctors/{id}/availability?date=`
 
 - A horizontal scroller of the next 14 days on mobile, a week grid on desktop.
 - The selected date is the only filled item.
@@ -319,7 +338,7 @@ The Cleveland Clinic "Find a Provider" pattern.
 - Days with no availability are still shown, disabled, with "No slots" as the accessible name.
   Hiding them makes the calendar look broken.
 
-### 7.3 Slot grid — `GET /doctors/{id}/availability?date=`
+### 7.4 Slot grid — `GET /doctors/{id}/availability?date=`
 
 The centrepiece. It is a **grid of buttons**, never a `<select>`: a dropdown with 16 options is
 a poor comparison surface, and it hides the shape of the day.
@@ -351,14 +370,14 @@ is a rule they will think is a bug.
 > The two are computed from the same rules, so the grid can never offer a slot that
 > `POST /appointments` would refuse.
 
-### 7.4 Booking summary and confirmation — `POST /appointments`
+### 7.5 Booking summary and confirmation — `POST /appointments`
 
 - A sticky summary panel on desktop, a collapsible summary above the button on mobile.
 - Shows: doctor, full date ("Thursday 22 October 2026"), time, and the clinic's contact details.
 - The confirmation screen leads with the **success banner** and a reference — the appointment id
   from the API — because that is what a patient reads out over the phone.
 
-### 7.5 Appointment card — `GET /patients/{id}/appointments`
+### 7.6 Appointment card — `GET /patients/{id}/appointments`
 
 - Status badge, doctor, date and time, and the actions for that state.
 - **Booked** → *Cancel* and *Reschedule*.
@@ -367,7 +386,7 @@ is a rule they will think is a bug.
   call the clinic to ask what happened.
 - `?include_cancelled=true` is the default on this screen, so the reschedule trail is visible.
 
-### 7.6 Buttons
+### 7.7 Buttons
 
 | Variant | Fill | Use |
 |---|---|---|
@@ -376,7 +395,7 @@ is a rule they will think is a bug.
 | Ghost | No border | Tertiary, in-card links. |
 | Destructive | `danger.600` border, `danger.700` label | Cancel an appointment. Confirm with a second step, never a single click. |
 
-### 7.7 Forms and errors
+### 7.8 Forms and errors
 
 - Every field has a visible label. Placeholder text is not a label; it disappears on focus.
 - Errors appear **below** the field, in `danger.700`, with the field marked `aria-invalid` and
@@ -386,7 +405,7 @@ is a rule they will think is a bug.
 - Nothing is submitted on blur. The API is authoritative; the client validates only what it can
   check instantly.
 
-### 7.8 The one interaction that needs care
+### 7.9 The one interaction that needs care
 
 `GET /availability` is **advisory** — it can be stale by the time the patient presses *Book*, and
 the API enforces the real rule at insert time.
@@ -425,7 +444,7 @@ Three steps and a confirmation. Not four steps and a confirmation.
 **Who the patient is.** The API has no authentication, so the site cannot know who is browsing.
 Rather than pretend otherwise, the patient is an **explicit choice**: a picker in the header and
 in the booking form, remembered in a cookie between pages, with a line of copy that says so —
-*"This demonstration has no sign-in, so you choose who you are booking for."* Hiding that
+*"There is no sign-in on this site, so you choose who you are booking for."* Hiding that
 behind a magic identity would be dishonest about what the system does.
 
 This is the open question in §15, and the honest answer is that the site demonstrates the
@@ -516,9 +535,11 @@ A patient is handing over their health. The interface has to earn that.
 - **Be honest about availability.** No fake scarcity.
 - **Do not invent accreditations, ratings or patient testimonials.** If the clinic has them, they
   are real data; if not, they are not on the page.
-- **Say what happens to the patient's data.** One plain sentence. This site has no
-  authentication and no persistence of patient identity beyond the appointment itself — that is
-  a stated limitation and the site should not imply otherwise.
+- **Say what happens to the patient's data.** The site holds a name, a doctor, a time and a phone
+  number, and nothing else: no medical records, no notes, no history. That is worth saying in
+  plain words, and the place for it is a short line next to the field that asks for the details.
+  A disclaimer sitting in the footer undermines the page it is on; a sentence beside the field
+  that wants the information does not.
 
 ---
 
