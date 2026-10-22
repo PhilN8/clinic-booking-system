@@ -1,0 +1,63 @@
+{{define "content"}}
+<section class="hero">
+  <div class="hero__body">
+    <p class="hero__eyebrow">{{.SiteName}}</p>
+    <h1 class="hero__title">World-class care, and a booking that takes a minute.</h1>
+    <p class="hero__lede">
+      Five exceptional doctors look after thousands of patients every year. Pick the one you want,
+      see the times that are free, and book in three taps.
+    </p>
+    <div class="hero__actions">
+      <a class="button button--primary button--large" href="/doctors">Book an appointment</a>
+      <a class="button button--ghost button--large" href="/patients/{{.PatientID}}/appointments">See my appointments</a>
+    </div>
+  </div>
+</section>
+
+<section class="highlights" aria-labelledby="highlights-heading">
+  <h2 class="visually-hidden" id="highlights-heading">Why patients choose us</h2>
+  <ul class="highlights__list">
+    <li class="highlight">
+      <h3 class="highlight__title">Exceptional doctors</h3>
+      <p class="highlight__body">
+        Every doctor here leads their own speciality and still takes the time to listen before they
+        write anything down.
+      </p>
+    </li>
+    <li class="highlight">
+      <h3 class="highlight__title">Care that fits around you</h3>
+      <p class="highlight__body">
+        Appointments come in 30-minute slots, so you are not kept waiting, and you can move or
+        cancel yours yourself.
+      </p>
+    </li>
+    <li class="highlight">
+      <h3 class="highlight__title">Simple to book</h3>
+      <p class="highlight__body">
+        No phone queue and no forms to fill in. See the free times, pick one, and you are booked.
+      </p>
+    </li>
+  </ul>
+</section>
+
+<section class="steps" aria-labelledby="steps-heading">
+  <h2 class="steps__heading" id="steps-heading">Booking takes three steps</h2>
+  <ol class="steps__list">
+    <li class="step">
+      <span class="step__number" aria-hidden="true">1</span>
+      <h3 class="step__title">Choose a doctor</h3>
+      <p class="step__body">Browse the team and open a doctor's times.</p>
+    </li>
+    <li class="step">
+      <span class="step__number" aria-hidden="true">2</span>
+      <h3 class="step__title">Pick a time</h3>
+      <p class="step__body">See every free slot on the day you want to come in.</p>
+    </li>
+    <li class="step">
+      <span class="step__number" aria-hidden="true">3</span>
+      <h3 class="step__title">You are booked</h3>
+      <p class="step__body">Your appointment is confirmed straight away, and you can change it later.</p>
+    </li>
+  </ol>
+</section>
+{{end}}

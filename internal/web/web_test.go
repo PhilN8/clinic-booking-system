@@ -164,6 +164,15 @@ func defaultStub() *stubService {
 		listPatientsFn: func(context.Context) ([]models.Patient, error) {
 			return testPatients(), nil
 		},
+		scheduleFn: func(context.Context, int64, string) (*service.Schedule, error) {
+			return &service.Schedule{
+				DoctorID: 1,
+				Slots: []service.DaySlot{
+					{Start: models.TimeOfDay(9, 0), End: models.TimeOfDay(9, 30), Status: service.SlotAvailable},
+					{Start: models.TimeOfDay(9, 30), End: models.TimeOfDay(10, 0), Status: service.SlotAvailable},
+				},
+			}, nil
+		},
 	}
 }
 
@@ -195,6 +204,7 @@ func request(t *testing.T, w *Web, method, path string, form url.Values, accept 
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", w.LandingPage)
 	mux.HandleFunc("GET /doctors", w.DoctorsPage)
 	mux.HandleFunc("GET /doctors/{id}", w.DoctorPage)
 	mux.HandleFunc("POST /doctors/{id}/appointments", w.BookAppointment)
@@ -221,6 +231,110 @@ func TestDoctorsPageListsDoctors(t *testing.T) {
 	for _, want := range []string{"Dr. Amara Ochieng", "9:00 AM – 5:00 PM", "View availability", "/doctors/1"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the page does not contain %q", want)
+		}
+	}
+}
+
+func TestLandingPageWelcomesAndOffersTheCTA(t *testing.T) {
+	web := newTestWeb(t, defaultStub())
+
+	recorder := get(t, web, "/")
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
+	}
+
+	body := recorder.Body.String()
+	for _, want := range []string{
+		"World-class care",
+		"Exceptional doctors",
+		"Book an appointment",
+		`href="/doctors"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the landing page does not contain %q", want)
+		}
+	}
+}
+
+// TestLandingPageHasOnePrimaryAction keeps the page to a single call to
+// action, which is the rule the design sets for every screen.
+func TestLandingPageHasOnePrimaryAction(t *testing.T) {
+	web := newTestWeb(t, defaultStub())
+
+	recorder := get(t, web, "/")
+	body := recorder.Body.String()
+
+	if got := strings.Count(body, `class="button button--primary`); got != 1 {
+		t.Errorf("the landing page has %d primary buttons, want 1", got)
+	}
+}
+
+// TestFooterHasNoDemoDisclaimer guards the removal of the demonstration
+// notice from the footer.
+func TestFooterHasNoDemoDisclaimer(t *testing.T) {
+	web := newTestWeb(t, defaultStub())
+
+	recorder := get(t, web, "/doctors")
+	body := strings.ToLower(recorder.Body.String())
+
+	for _, unwanted := range []string{"demonstration booking system", "not connected to a real patient system"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("the footer still contains %q", unwanted)
+		}
+	}
+}
+
+// TestPatientPickerIsExplained checks that the reason for the patient
+// dropdown is on the page. A dropdown with no explanation is a puzzle.
+func TestPatientPickerIsExplained(t *testing.T) {
+	web := newTestWeb(t, defaultStub())
+
+	recorder := get(t, web, "/doctors/1?date=2026-11-02")
+	body := recorder.Body.String()
+
+	if !strings.Contains(body, "no sign-in") {
+		t.Error("the patient picker is not explained on the page")
+	}
+	if !strings.Contains(body, `name="patient_id"`) {
+		t.Error("the booking form has no patient picker")
+	}
+}
+
+// TestEveryErrorCodeHasAPatientMessage checks that no API error code can
+// reach a patient as raw API text.
+func TestEveryErrorCodeHasAPatientMessage(t *testing.T) {
+	codes := []string{
+		httperr.CodeInvalidJSON,
+		httperr.CodeInvalidRequest,
+		httperr.CodeInvalidDate,
+		httperr.CodeInvalidTime,
+		httperr.CodeDoctorNotFound,
+		httperr.CodePatientNotFound,
+		httperr.CodeAppointmentNotFound,
+		httperr.CodeSlotNotAligned,
+		httperr.CodeOutsideWorkingHours,
+		httperr.CodeTooSoon,
+		httperr.CodeAppointmentInPast,
+		httperr.CodeSlotTaken,
+		httperr.CodeAppointmentCancelled,
+	}
+
+	for _, code := range codes {
+		message, got := formatError(&httperr.Error{Code: code, Message: "raw api text"})
+		if got != code {
+			t.Errorf("formatError(%q) returned the code %q", code, got)
+		}
+		if message == "" {
+			t.Errorf("formatError(%q) returned an empty message", code)
+		}
+		if strings.Contains(message, "raw api text") {
+			t.Errorf("formatError(%q) leaked the API message %q", code, message)
+		}
+		// The raw API phrasing that must never reach a patient.
+		for _, technical := range []string{"appointment_date", "start_time", "does not exist", "null"} {
+			if strings.Contains(message, technical) {
+				t.Errorf("formatError(%q) is not patient friendly: %q", code, message)
+			}
 		}
 	}
 }
@@ -329,7 +443,7 @@ func TestBookAppointmentConflictKeepsThePatientOnTheDay(t *testing.T) {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusOK)
 	}
 	body := recorder.Body.String()
-	if !strings.Contains(body, "just taken by someone else") {
+	if !strings.Contains(body, "Someone else has just booked that time") {
 		t.Error("the page does not explain that the slot was taken")
 	}
 	if !strings.Contains(body, "slot--taken") {

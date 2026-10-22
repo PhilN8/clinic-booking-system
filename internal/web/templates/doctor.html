@@ -38,7 +38,7 @@
         <option value="{{.ID}}"{{if .Selected}} selected{{end}}>{{.Name}}</option>
         {{end}}
       </select>
-      <p class="field__hint">This demonstration has no sign-in, so you choose who you are booking for.</p>
+      <p class="field__hint">There is no sign-in on this site, so you choose who you are booking for.</p>
     </div>
 
     <button class="button button--primary" type="submit">Book appointment</button>
@@ -51,7 +51,7 @@
   {{else}}
   <div class="empty-state">
     <h3>No appointments on this day</h3>
-    <p>{{.Doctor.Name}} does not have appointments on {{.DateLabel}}. Please choose another date.</p>
+    <p>There are no appointments with {{.Doctor.Name}} on {{.DateLabel}}. Please choose another date.</p>
   </div>
   {{end}}
 </section>

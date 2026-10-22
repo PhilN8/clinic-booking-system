@@ -39,7 +39,7 @@ const SiteName = "Nairobi Clinic"
 // pages are the templates that can be rendered. Each is parsed with the
 // layout into its own template set, so every page can define "content"
 // without colliding with the others.
-var pages = []string{"doctors", "doctor", "appointments", "cancel", "reschedule", "confirmation"}
+var pages = []string{"landing", "doctors", "doctor", "appointments", "cancel", "reschedule", "confirmation"}
 
 // Service is the part of the service layer the site depends on.
 //

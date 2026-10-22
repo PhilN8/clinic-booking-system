@@ -113,6 +113,11 @@ type appointmentCard struct {
 	CancellationReason string
 }
 
+// landingPage is the front page.
+type landingPage struct {
+	base
+}
+
 // doctorsPage is the doctor list.
 type doctorsPage struct {
 	base

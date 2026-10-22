@@ -13,7 +13,7 @@ func (w *Web) notFound(rw http.ResponseWriter, r *http.Request) {
 	data.Notice = &alertView{
 		Tone:    "info",
 		Title:   "We could not find that page",
-		Message: "The link may be out of date. Start again from the list of doctors.",
+		Message: "The link may be out of date. Head back to the doctors and pick up where you left off.",
 	}
 	w.render(rw, http.StatusNotFound, "doctors", data)
 }
@@ -32,8 +32,8 @@ func (w *Web) serverError(rw http.ResponseWriter, r *http.Request, err error) {
 	data := doctorsPage{base: w.base(r, "Something went wrong", "Something went wrong.")}
 	data.Error = &alertView{
 		Tone:    "danger",
-		Title:   "Something went wrong",
-		Message: "We could not load that page. Please try again in a moment, or call the clinic.",
+		Title:   "Something went wrong on our side",
+		Message: "We could not load that page just now. Please try again in a moment, or call the clinic and we will sort it out.",
 	}
 	w.render(rw, http.StatusInternalServerError, "doctors", data)
 }
