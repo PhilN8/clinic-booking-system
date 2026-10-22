@@ -537,28 +537,31 @@ matches `DATABASE_URL` in `.env.example`. Include a `.env.example`.
 The documentation is split in two, because the assessment asks for different things in different
 places.
 
-**`README.md`** answers the assessment's sections 1, 3 and 4, and nothing else:
+**`README.md`** answers the assessment's sections 1, 2, 3 and 4:
 
 1. **System design** — entities, request flow, the layering, the slot model, how double-booking is
    prevented, the reschedule transaction, the time model, and then the key decisions with the
    alternative each one rejected.
-2. **Deployment and CI/CD** — the public URL, the deploy trigger branch, the pipeline, how the
+2. **API implementation and its documentation** — the endpoint list, the changes made to the API
+   documentation, and the error vocabulary with the status each code maps to.
+3. **Deployment and CI/CD** — the public URL, the deploy trigger branch, the pipeline, how the
    deploy is gated, and the operational troubleshooting.
-3. **AI reflection** — all four assessment questions answered honestly and specifically. Name the
+4. **AI reflection** — all four assessment questions answered honestly and specifically. Name the
    prompt that produced a useful result, and name cases where the AI was wrong and how it was
    caught. Do not fake confidence; specificity is what gets read.
 
 **`reference.md`** holds everything a reviewer needs to run and use the code: how to run it
-locally with a copy-pasteable walkthrough, the full API reference, the test matrix, the
-deployment reference, the known limitations and the design system pointer.
+locally with a copy-pasteable walkthrough, the full API reference with every request and
+response body, the test matrix, the deployment reference, the known limitations and the design
+system pointer.
 
 Two rules for both files:
 
 - **Write for a human reader.** Use plain English, short sentences and active voice. No
   one-line closers that restate the paragraph above them, no bold labels on every list item, no
   horizontal rule between every section, and no em dashes in prose.
-- **Do not split the assessment's sections across the two files.** The README holds sections 1,
-  3 and 4; the reference holds the material for section 2 and the operating notes.
+- **Do not split an assessment section across the two files.** The README answers the four
+  sections; the reference holds the material behind them.
 
 ---
 

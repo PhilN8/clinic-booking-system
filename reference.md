@@ -1,7 +1,9 @@
 # Clinic booking system: reference
 
-The companion reference for the [README](README.md). The README answers sections 1, 3 and 4 of
-the assessment. This file holds what a reviewer needs to run the code and call the API.
+The companion reference for the [README](README.md). The README answers all four sections of
+the assessment. This file holds what a reviewer needs to run the code and call the API: every
+request and response body, the local setup, the test matrix, the deployment reference, the
+known limitations and the design system.
 
 | | |
 |---|---|
