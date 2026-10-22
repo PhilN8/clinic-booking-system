@@ -98,6 +98,7 @@ design/tokens.json               # the palette; the source of truth for colour
 design/tokens.go                 # loading, lookup and CSS variable generation
 design/tokens_test.go            # the WCAG contrast assertions
 design.md                        # the design system document
+docs/sys_design_photo.jpg        # the system design diagram shown in the README
 .github/workflows/ci.yml
 Dockerfile
 docker-compose.yml
@@ -106,8 +107,10 @@ README.md
 reference.md
 ```
 
-**Layering rule:** `handlers → service → repository → database`. The service layer never imports
-`net/http`; handlers never build SQL; repositories contain no business rules.
+**Layering rule: hexagonal (ports and adapters).** `handlers` and `web` are driving adapters,
+`service` is the port they call, and `repository` is the driven adapter it calls back out
+through. The dependency arrow only points inwards. The service layer never imports `net/http` or
+`sql`; handlers never build SQL; repositories contain no business rules.
 
 **The site (`internal/web`) sits alongside the API, not above it.** It reads through the same
 service layer, renders Go templates, and never writes SQL. The JSON API contract is unchanged.

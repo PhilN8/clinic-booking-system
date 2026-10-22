@@ -56,25 +56,30 @@ while "when was this row cancelled" is an event on a timeline.
 
 ### Components
 
-```
-HTTP request
-    │
-    ▼
-internal/handlers      decode the request, call the service, encode the response
-    ▼
-internal/service       the clinic's rules: validity, grid, lead time, slot generation
-    ▼
-internal/repository    every SQL statement and every transaction
-    ▼
-PostgreSQL
-```
+The architecture is **hexagonal**, also called ports and adapters. The clinic's rules are the
+middle, and everything else attaches to them from the outside.
 
-The dependency arrow only points downwards. The service layer declares the persistence interface
-it needs and the Postgres implementation satisfies it structurally, so the rules never depend on
-the database. That is what lets the rule tests run without one.
+[![System design: the architecture and data flow, the database model and constraints, and the reschedule transaction sequence](docs/sys_design_photo.jpg)](docs/sys_design_photo.jpg)
 
-Rules are pure functions over plain values, and the clock is injected rather than read from the
-inside, so a test can pin it to an exact instant:
+The diagram reads left to right. A request arrives at the router, which is the only place that
+knows both the HTML site and the JSON API exist. The `Accept` header decides which of the two
+answers it. From there the request becomes a method call on the service layer, which is the
+middle of the hexagon: it holds the rules, and it knows nothing about HTTP, templates, SQL or
+Postgres. The repository is the only thing that knows how to talk to the database.
+
+That is the port. The service layer declares the interface it needs from storage
+(`service.Repository`), and the Postgres implementation satisfies it structurally, without the
+service layer importing it or knowing that Postgres exists. The rules never depend on the
+database, which is what lets the rule tests run without one.
+
+The same arrangement holds on the way in. The handlers and the site are **driving adapters**:
+they take a request and turn it into a call on the service. The repository is the **driven
+adapter**: it takes a call and turns it into a query. Swapping either side, for a different
+database or a different transport, touches nothing in the middle.
+
+Because the middle is the whole product, the rules live there as pure functions over plain
+values, and the clock is injected rather than read from the inside, so a test can pin it to an
+exact instant:
 
 ```go
 func ValidateSlot(doctor *models.Doctor, date, start time.Time, now time.Time, loc *time.Location) error
@@ -171,9 +176,11 @@ service needs is about forty lines.
 links the replacement to its predecessor. The cost is that the appointment id changes and the
 patient sees two entries in their history, one cancelled and one booked.
 
-**A service layer, with rules as pure functions.** The rules should be testable without a
-database, and the injected clock lets the one-hour boundary be asserted exactly rather than
-approximately.
+**A hexagonal service layer, with rules as pure functions.** The service layer is the port the
+adapters plug into, so the rules are testable without a database and without an HTTP server. The
+injected clock lets the one-hour boundary be asserted exactly rather than approximately. The
+alternative, rules living in the handlers, is where a lot of Go web services put them, and it
+couples the clinic's rules to the transport.
 
 **No authentication.** The brief does not ask for it and its scope is booking logic. Inventing a
 user model and a session story would have left them untested against real requirements. The
