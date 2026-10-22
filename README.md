@@ -84,6 +84,10 @@ untouched. Three paths exist as both a page and an endpoint, and they negotiate 
 header: a browser gets the page, `curl` gets JSON. The whole API is also mounted under `/api`,
 where it is always JSON.
 
+Every endpoint is described by an OpenAPI 3.1 document, served at `/openapi.json` and rendered at
+`/docs`. The route table in `internal/server/routes.go` drives the router and is compared
+against that document by a test, so a route cannot be added without it being documented.
+
 ### Slots
 
 A doctor's shift is divided into consecutive 30-minute slots anchored at the start of the shift.
@@ -194,6 +198,7 @@ Render runs the service as a Docker web service with a managed PostgreSQL 18 ins
 | **Live site** | <https://clinic-booking-system-1-yu19.onrender.com> |
 | **Live API** | <https://clinic-booking-system-1-yu19.onrender.com/api/doctors> |
 | **Health check** | <https://clinic-booking-system-1-yu19.onrender.com/healthz> |
+| **API reference** | <https://clinic-booking-system-1-yu19.onrender.com/docs> |
 | **Deploy trigger** | a push to `main` |
 | **Database** | Render managed PostgreSQL 18, free plan |
 

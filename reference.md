@@ -7,6 +7,8 @@ the assessment. This file holds what a reviewer needs to run the code and call t
 |---|---|
 | **Live site** | <https://clinic-booking-system-1-yu19.onrender.com> |
 | **Live API** | <https://clinic-booking-system-1-yu19.onrender.com/api/doctors> |
+| **API spec** | <https://clinic-booking-system-1-yu19.onrender.com/openapi.json> |
+| **API reference** | <https://clinic-booking-system-1-yu19.onrender.com/docs> |
 
 ## Contents
 
@@ -170,6 +172,17 @@ curl -s "$BASE/patients/1/appointments?include_cancelled=true"
 | `TEST_DATABASE_URL` | no | none | Used by the integration tests; they skip without it |
 
 ## API reference
+
+Every endpoint is described by an OpenAPI 3.1 document, served as JSON at `/openapi.json` and
+rendered with a browsable reference at `/docs`. The document carries the domain rules, the
+request and response examples, and the error vocabulary.
+
+It is kept honest by a test rather than by discipline. The route table in
+`internal/server/routes.go` drives the router, and the same table is compared against the
+document: a route that is not documented, a documented path that nothing serves, a duplicated
+`operationId`, an error code missing from the vocabulary and a `$ref` that resolves to nothing
+all fail the build.
+
 Request and response bodies are JSON. Unknown request fields are rejected with `400` rather
 than ignored.
 

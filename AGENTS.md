@@ -60,6 +60,11 @@ internal/database/database.go    # connect, ping, migrate (embed migrations)
 internal/database/migrations/    # 0001_init.sql, ... (embedded)
 internal/httperr/httperr.go      # typed error + JSON error envelope
 internal/models/models.go        # Doctor, Patient, Appointment
+internal/openapi/openapi.go      # serves the OpenAPI document, embedded in the binary
+internal/openapi/openapi.json    # the OpenAPI 3.1 description of the API
+internal/openapi/openapi_test.go # the drift tests that keep the document honest
+internal/server/routes.go        # the route table, which drives the router
+internal/server/templates/docs.html  # the browsable API reference
 internal/repository/             # ALL SQL lives here
 internal/repository/doctor.go
 internal/repository/patient.go
@@ -107,6 +112,10 @@ reference.md
 **The site (`internal/web`) sits alongside the API, not above it.** It reads through the same
 service layer, renders Go templates, and never writes SQL. The JSON API contract is unchanged.
 
+**The route table lives in `internal/server/routes.go`, not in `cmd/api`.** One table drives the
+router and is compared against the OpenAPI document by a test, so a route cannot be added
+without it being documented. Adding a route means adding a `Route` entry and a path in
+`internal/openapi/openapi.json`; the test fails until both are there.
 
 ---
 
@@ -410,6 +419,12 @@ is not allowed".
 `OUTSIDE_WORKING_HOURS`, `TOO_SOON`, `APPOINTMENT_IN_PAST`, `SLOT_TAKEN`,
 `APPOINTMENT_ALREADY_CANCELLED`, `INTERNAL_ERROR`.
 
+**Every endpoint above is also in `internal/openapi/openapi.json`.** The document is OpenAPI 3.1
+and carries the domain rules, a request and a response example for every operation, and the
+error vocabulary. `internal/openapi/openapi_test.go` fails the build if a route is undocumented,
+if the document documents a path nothing serves, if two operations share an `operationId`, if an
+error code is missing from the vocabulary, or if a `$ref` resolves to nothing.
+
 ---
 
 ## 7. Concurrency
@@ -579,6 +594,7 @@ Rules for anyone extending it:
       at the boundary.
 - [ ] Table-driven tests cover every rule in §5.
 - [ ] `Dockerfile`, `docker-compose.yml`, `render.yaml`, `.github/workflows/ci.yml` all present.
+- [ ] Every API route is in the OpenAPI document, and `/openapi.json` and `/docs` are served.
 - [ ] The app is deployed and reachable at a public URL; `/healthz` returns 200.
 - [ ] README answers assessment sections 1, 3 and 4, including the live URL and the AI reflection.
 - [ ] `curl` walkthrough in `reference.md` works verbatim from a clean clone.
