@@ -241,24 +241,26 @@ what to do when a deploy fails, is in [`reference.md`](reference.md).
 suggestion improved the work and the prompt behind it, one example where the output was wrong and
 how it was caught, and two decisions made without AI.*
 
+Most of the code was written by the AI. My part was to write the spec for each piece of work,
+review what came back, and decide the things that needed deciding.
+
 ### 1. What I used AI for
 
-**Section 1 (design).** I had the AI interrogate the brief before writing any code. It produced
-a list of ambiguities: the missing timezone, the unstated appointment duration, the missing
-service layer, the reschedule race. I resolved each one by making an explicit decision and
-recording it in `AGENTS.md` and above.
+**Section 1 (design).** I ran the brief through the `grill-me` skill, which interrogates a plan
+for holes and contradictions instead of confirming it. It found the missing timezone, the
+unstated appointment duration, the missing service layer and the reschedule race, none of which I
+had spotted. I turned each into an explicit decision, recorded in `AGENTS.md` and above.
 
-**Section 2 (implementation).** Mostly me writing Go, with AI assistance for the mechanical
-parts. It found the pgx error inspection for unique violations and drafted the `httptest`
-scaffolding; the slot queries I wrote myself.
+**Section 2 (implementation).** I wrote a spec for each pull request and the AI built it: the
+service layer and its table-driven tests, the repository and its transactions, the handlers, the
+patient-facing site, the Docker image and the CI workflow. I reviewed the diffs and wrote the
+spec for the review you are reading now.
 
-**Section 3 (deployment).** The AI drafted the `Dockerfile`, the `render.yaml` blueprint and the
-GitHub Actions workflow. I wrote the deployment steps by hand against Render's and Docker Hub's
-actual interfaces.
+**Section 3 (deployment).** The spec covered the Render blueprint, the Docker image and the
+pipeline, down to the settings that only exist in a dashboard: the runtime, the auto-deploy
+trigger and the branch it watches.
 
-**Section 4 and the documentation.** I asked the AI to interrogate the brief for holes and
-contradictions, which produced the insight in the next section. The mistakes in the one after it
-were mine, and the tests caught them. I also ran both documentation files through the
+**Section 4 and the documentation.** I ran both documentation files through the
 `blader/humanizer` skill, which catalogues the habits that make a passage read as machine-written:
 contrasts that only add weight, one-line closers that restate the paragraph above them, triads
 and dashes applied by habit, and bold labels on every item of a list. Removing them changed the
@@ -266,8 +268,8 @@ prose without changing a fact.
 
 ### 2. Where it improved the work
 
-**Prompt:** *"Review this clinic booking API brief for holes, ambiguities and contradictions.
-Focus on the schema, the concurrency guarantees and the test requirements."*
+**Prompt:** the brief, handed to the `grill-me` skill with the instruction to find the holes
+before any code was written.
 
 The useful thing that came back was that the prescribed unique index does not prevent
 double-booking. The brief asked for a composite unique index on `(doctor_id, appointment_date,
@@ -279,28 +281,20 @@ The follow-on question has a clean answer. The index suffices when every appoint
 30 minutes long and every start lands on the 30-minute grid, because then overlap implies an
 identical start time. So the fix was to make the duration fixed and the grid mandatory, which
 the brief had left as an unstated assumption. That changed the schema, the service layer and the
-test suite, and I would not have spotted the gap on my own because the index in the brief looks
-like it does the job.
+test suite. Reading the brief on my own, I would not have spotted the gap, because the index in
+the brief looks like it does the job.
 
 ### 3. Where it was wrong
 
-**A test that asserted the opposite of the truth.** I wrote a table-driven case named "after the
-shift" expecting `IsOnGrid(09:00, 17:00)` to be `false`. The grid is anchored at the start of
-the shift and knows nothing about where the shift ends, so 17:00 is on the grid and the
-working-hours check is what rejects it. The test failed, and I corrected the expectation and
-renamed the case to say what it actually means.
+The AI assumed `pgx` would return `TIME` and `DATE` columns as `time.Time`, the way most ORMs
+do. The first integration test against real PostgreSQL failed with `unsupported Scan, storing
+driver.Value type string into type *time.Time`, because through `database/sql` `pgx` hands `TIME`
+back as the text `"09:00:00"`. The fix was to scan into `any` and convert explicitly, accepting
+either representation.
 
-**A parser that was not as strict as the specification required.** The brief says a time of day is
-`HH:MM`. I wrote `time.Parse("15:04", value)` and assumed that enforced two-digit hours. Go's
-`15` layout accepts a single-digit hour, so `"9:00"` parsed as 09:00. The unit test failed, and
-the fix was to format the parsed value back and compare it with the input.
-
-**An assumption about the driver that was simply false.** I expected `pgx` to return `TIME` and
-`DATE` columns as `time.Time`, the way most ORMs do. The first integration test against real
-PostgreSQL failed with `unsupported Scan, storing driver.Value type string into type *time.Time`,
-because through `database/sql` `pgx` hands `TIME` back as the text `"09:00:00"`. No unit test
-could have caught it. It only appeared once the code ran against a real database, which is why
-the integration tests were worth writing.
+No unit test could have caught it. It only appeared once the code ran against a real database,
+which is why the integration tests were worth writing. Two more mistakes the tests caught are
+recorded in [`reference.md`](reference.md).
 
 ### 4. Two decisions I made without the AI
 

@@ -342,6 +342,23 @@ go test ./...
 | Migrations run twice | Idempotent |
 | Wall-clock round trip | A booked 13:30 slot reads back as 13:30 with the right end time and date |
 
+### Mistakes the tests caught
+
+Most of the code was written by the AI, so most of the mistakes in it were the AI's. These two
+were caught by the unit tests. The third, the `pgx` one, is in the README's AI reflection because
+it only surfaced against a real database.
+
+**A test that asserted the opposite of the truth.** A table-driven case named "after the shift"
+expected `IsOnGrid(09:00, 17:00)` to be `false`. The grid is anchored at the start of the shift
+and knows nothing about where the shift ends, so 17:00 is on the grid and the working-hours check
+is what rejects it. The test failed, and the fix was to correct the expectation and rename the
+case to say what it actually means.
+
+**A parser that was not as strict as the specification required.** The brief says a time of day is
+`HH:MM`. The code used `time.Parse("15:04", value)` and assumed that enforced two-digit hours.
+Go's `15` layout accepts a single-digit hour, so `"9:00"` parsed as 09:00. The unit test failed,
+and the fix was to format the parsed value back and compare it with the input.
+
 
 ## Deployment reference
 ### Validating the blueprint
