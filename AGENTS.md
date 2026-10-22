@@ -3,7 +3,7 @@
 > Directive for the development agent. Read this file completely before writing any code.
 > Every rule below is a **decision**, not a suggestion. Where the original take-home brief was
 > ambiguous, this file resolves the ambiguity. Do not re-litigate a decision here — implement it,
-> and record it in the README as a design decision with its rationale.
+> and record it in the README's Decisions section as a design decision with its rationale.
 
 ---
 
@@ -98,6 +98,7 @@ Dockerfile
 docker-compose.yml
 render.yaml
 README.md
+reference.md
 ```
 
 **Layering rule:** `handlers → service → repository → database`. The service layer never imports
@@ -516,27 +517,33 @@ matches `DATABASE_URL` in `.env.example`. Include a `.env.example`.
 
 ---
 
-## 10. README (graded — do not skimp)
+## 10. README and reference (graded — do not skimp)
 
-Required sections, in order:
+The documentation is split in two, because the assessment asks for different things in different
+places.
 
-1. **System Design** — entities, request flow, why the layering is what it is.
-2. **Key Decisions & Trade-offs** — one subsection per decision, each with the alternative
-   considered and why it was rejected. At minimum: PostgreSQL over SQLite; wall-clock clinic time
-   over `TIMESTAMPTZ`; stdlib router over chi/gin; fixed 30-minute duration; partial unique index
-   over application-level checks; cancel-and-reinsert for reschedule; no authentication.
-3. **How to Run Locally** — `docker compose up -d`, `go run ./cmd/api`, and a curl walkthrough
-   that actually works (copy-pasteable).
-4. **API Reference** — every endpoint, with request/response examples and the status-code table.
-5. **Testing** — how to run unit tests and how to run integration tests with a DB.
-6. **Deployment** — the public URL, the deploy trigger branch, what the pipeline does.
-7. **Known Limitations & Future Work** — the 7-day working week, no auth, no pagination, the
-   DST-free-timezone assumption, no doctor/patient writes.
-8. **AI Reflection** — answer all four assessment questions honestly and specifically. Name the
-   prompt that produced a useful result, and name a case where the AI was wrong and how it was
-   caught. Do not fake confidence; specificity is what's read.
-9. **Design System** — point at `design.md` and explain that the colour tokens are enforced by
-   `go test ./design/`.
+**`README.md`** answers the assessment's sections 1, 3 and 4, and nothing else:
+
+1. **System design** — entities, request flow, the layering, the slot model, how double-booking is
+   prevented, the reschedule transaction, the time model, and then the key decisions with the
+   alternative each one rejected.
+2. **Deployment and CI/CD** — the public URL, the deploy trigger branch, the pipeline, how the
+   deploy is gated, and the operational troubleshooting.
+3. **AI reflection** — all four assessment questions answered honestly and specifically. Name the
+   prompt that produced a useful result, and name cases where the AI was wrong and how it was
+   caught. Do not fake confidence; specificity is what gets read.
+
+**`reference.md`** holds everything a reviewer needs to run and use the code: how to run it
+locally with a copy-pasteable walkthrough, the full API reference, the test matrix, the
+deployment reference, the known limitations and the design system pointer.
+
+Two rules for both files:
+
+- **Write for a human reader.** Use plain English, short sentences and active voice. No
+  one-line closers that restate the paragraph above them, no bold labels on every list item, no
+  horizontal rule between every section, and no em dashes in prose.
+- **Do not split the assessment's sections across the two files.** The README holds sections 1,
+  3 and 4; the reference holds the material for section 2 and the operating notes.
 
 ---
 
@@ -573,8 +580,8 @@ Rules for anyone extending it:
 - [ ] Table-driven tests cover every rule in §5.
 - [ ] `Dockerfile`, `docker-compose.yml`, `render.yaml`, `.github/workflows/ci.yml` all present.
 - [ ] The app is deployed and reachable at a public URL; `/healthz` returns 200.
-- [ ] README contains all 8 sections from §10, including the live URL and the AI reflection.
-- [ ] `curl` walkthrough in the README works verbatim from a clean clone.
+- [ ] README answers assessment sections 1, 3 and 4, including the live URL and the AI reflection.
+- [ ] `curl` walkthrough in `reference.md` works verbatim from a clean clone.
 
 ---
 
@@ -587,6 +594,6 @@ Rules for anyone extending it:
   non-obvious reasoning inline (especially §3, §7) — a reviewer reading the diff should be able to
   see *why*.
 - If you believe a decision in this file is wrong, **do not silently deviate**. Change it here in
-  `AGENTS.md` and record the change and its rationale in the README's Key Decisions section.
+  `AGENTS.md` and record the change and its rationale in the README's Decisions section.
 - Go convention: idiomatic naming, `errors.Is`/`errors.As` for error handling, no `panic` outside
   `main`, table-driven tests with descriptive case names, `t.Helper()` in assertion helpers.
