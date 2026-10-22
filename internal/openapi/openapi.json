@@ -1,0 +1,891 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Clinic Booking API",
+    "version": "1.0.0",
+    "summary": "Book, move and cancel 30-minute clinic appointments.",
+    "description": "The API behind a small clinic with five doctors. A patient picks a doctor and a date, sees the 30-minute slots that are free, and books one.\n\n### How slots work\n\nA doctor's working day is divided into consecutive 30-minute slots anchored at the start of their shift. A 09:00 to 17:00 shift gives sixteen slots, from 09:00 through 16:30.\n\nThree rules decide whether a slot can be booked:\n\n- **Working-hours bounds are inclusive.** A 09:00 start is valid, and a 16:30 start is valid because it ends exactly at 17:00. A 17:00 start is not.\n- **Grid alignment is mandatory.** Starts land on the hour or the half hour. A 09:15 start is rejected.\n- **Appointments need an hour's notice.** A slot starting less than 60 minutes from now is refused. A slot starting exactly 60 minutes away is allowed.\n\n### Double-booking\n\nA slot can never be held by two patients. The protection is a partial unique index on `(doctor_id, appointment_date, start_time)` for appointments that are not cancelled, so the database refuses the second booking and the API answers `409 SLOT_TAKEN`. Cancelling an appointment frees its slot with no cleanup job, because the index only covers appointments that are still booked.\n\n### Times and dates\n\nTimes are wall-clock times in the clinic's timezone, `Africa/Nairobi` by default, sent as `HH:MM` in 24-hour form. Dates are calendar dates sent as `YYYY-MM-DD`. The API does not accept a full timestamp, and it does not accept offsets: there is one clinic, one timezone, and one clock.\n\n### Content negotiation\n\nThree paths are served as a JSON API and as an HTML page, because the same binary serves the API and the patient-facing site. They negotiate on the `Accept` header:\n\n- `Accept: text/html` returns the page.\n- Anything else, including the `*/*` that curl sends by default, returns JSON.\n\nThe whole API is also mounted under `/api`, where it is always JSON and never negotiates.\n\n### Errors\n\nEvery failure uses the same envelope: an `error` object with a stable machine-readable `code`, a human-readable `message` that says what went wrong, and optional `details`.",
+    "contact": {
+      "name": "Clinic Booking API",
+      "url": "https://github.com/PhilN8/clinic-booking-system"
+    },
+    "license": {
+      "name": "MIT",
+      "identifier": "MIT"
+    }
+  },
+  "servers": [
+    {
+      "url": "https://clinic-booking-system-1-yu19.onrender.com",
+      "description": "Live deployment"
+    },
+    {
+      "url": "http://localhost:8080",
+      "description": "Local development"
+    }
+  ],
+  "tags": [
+    {
+      "name": "Doctors",
+      "description": "The clinicians patients book with, and the times they are free."
+    },
+    {
+      "name": "Patients",
+      "description": "Patients and the appointments they hold."
+    },
+    {
+      "name": "Appointments",
+      "description": "Booking, moving and cancelling a 30-minute appointment."
+    },
+    {
+      "name": "Operations",
+      "description": "Service health."
+    }
+  ],
+  "paths": {
+    "/doctors": {
+      "get": {
+        "tags": ["Doctors"],
+        "summary": "List the doctors",
+        "description": "Every doctor who takes appointments, with the window they work in.",
+        "operationId": "listDoctors",
+        "responses": {
+          "200": {
+            "description": "The doctors, in id order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": { "$ref": "#/components/schemas/Doctor" }
+                },
+                "examples": {
+                  "all": {
+                    "summary": "The five doctors in the seeded database",
+                    "value": [
+                      {
+                        "id": 1,
+                        "name": "Dr. Amara Ochieng",
+                        "start_working_hour": "09:00",
+                        "end_working_hour": "17:00"
+                      },
+                      {
+                        "id": 2,
+                        "name": "Dr. Brian Otieno",
+                        "start_working_hour": "08:00",
+                        "end_working_hour": "16:00"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/doctors/{id}": {
+      "get": {
+        "tags": ["Doctors"],
+        "summary": "Get one doctor",
+        "description": "The doctor with the given id, including the window they work in.",
+        "operationId": "getDoctor",
+        "parameters": [
+          { "$ref": "#/components/parameters/DoctorId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The doctor.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Doctor" },
+                "example": {
+                  "id": 1,
+                  "name": "Dr. Amara Ochieng",
+                  "start_working_hour": "09:00",
+                  "end_working_hour": "17:00"
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/doctors/{id}/availability": {
+      "get": {
+        "tags": ["Doctors"],
+        "summary": "List the free slots for a doctor on a date",
+        "description": "The slots that can be booked. Slots that are already taken are not returned, and neither are slots that start within the next hour. A date in the past returns an empty list rather than an error.",
+        "operationId": "getDoctorAvailability",
+        "parameters": [
+          { "$ref": "#/components/parameters/DoctorId" },
+          { "$ref": "#/components/parameters/Date" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The free slots, in order.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Availability" },
+                "example": {
+                  "doctor_id": 1,
+                  "date": "2026-11-02",
+                  "slots": [
+                    { "start": "09:00", "end": "09:30" },
+                    { "start": "09:30", "end": "10:00" },
+                    { "start": "10:00", "end": "10:30" }
+                  ]
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/patients/{id}": {
+      "get": {
+        "tags": ["Patients"],
+        "summary": "Get one patient",
+        "description": "The patient with the given id.",
+        "operationId": "getPatient",
+        "parameters": [
+          { "$ref": "#/components/parameters/PatientId" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The patient.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Patient" },
+                "example": { "id": 1, "name": "Grace Wanjiku" }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/patients/{id}/appointments": {
+      "get": {
+        "tags": ["Patients"],
+        "summary": "List a patient's appointments",
+        "description": "Upcoming appointments for a patient, soonest first. Cancelled appointments are left out unless `include_cancelled` is set, in which case past and future cancelled appointments are included as well.",
+        "operationId": "listPatientAppointments",
+        "parameters": [
+          { "$ref": "#/components/parameters/PatientId" },
+          { "$ref": "#/components/parameters/IncludeCancelled" }
+        ],
+        "responses": {
+          "200": {
+            "description": "The appointments, soonest first.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/PatientAppointments" },
+                "example": {
+                  "patient_id": 1,
+                  "appointments": [
+                    {
+                      "id": 1,
+                      "doctor_id": 1,
+                      "patient_id": 1,
+                      "appointment_date": "2026-11-02",
+                      "start_time": "09:30",
+                      "end_time": "10:00",
+                      "status": "booked",
+                      "cancellation_reason": null,
+                      "cancelled_at": null,
+                      "created_at": "2026-10-21T11:02:01Z",
+                      "rescheduled_from_id": null
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/appointments": {
+      "post": {
+        "tags": ["Appointments"],
+        "summary": "Book an appointment",
+        "description": "Books a slot. The slot must be inside the doctor's working hours, on the half hour, and at least an hour away.\n\nIf two patients book the same slot at the same moment, one of them gets `409 SLOT_TAKEN`.",
+        "operationId": "bookAppointment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/BookAppointmentRequest" },
+              "example": {
+                "doctor_id": 1,
+                "patient_id": 1,
+                "appointment_date": "2026-11-02",
+                "start_time": "09:30"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The appointment was booked.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Appointment" },
+                "example": {
+                  "id": 1,
+                  "doctor_id": 1,
+                  "patient_id": 1,
+                  "appointment_date": "2026-11-02",
+                  "start_time": "09:30",
+                  "end_time": "10:00",
+                  "status": "booked",
+                  "cancellation_reason": null,
+                  "cancelled_at": null,
+                  "created_at": "2026-10-21T11:02:01Z",
+                  "rescheduled_from_id": null
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/appointments/{id}/cancel": {
+      "patch": {
+        "tags": ["Appointments"],
+        "summary": "Cancel an appointment",
+        "description": "Cancels an appointment and frees its slot. The reason is optional and stored on the appointment.\n\nAn appointment that has already started cannot be cancelled, and neither can one that is already cancelled.",
+        "operationId": "cancelAppointment",
+        "parameters": [
+          { "$ref": "#/components/parameters/AppointmentId" }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/CancelAppointmentRequest" },
+              "example": {
+                "reason": "Patient no longer needs the appointment"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The cancelled appointment.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Appointment" },
+                "example": {
+                  "id": 1,
+                  "doctor_id": 1,
+                  "patient_id": 1,
+                  "appointment_date": "2026-11-02",
+                  "start_time": "09:30",
+                  "end_time": "10:00",
+                  "status": "cancelled",
+                  "cancellation_reason": "Patient no longer needs the appointment",
+                  "cancelled_at": "2026-10-21T11:06:16Z",
+                  "created_at": "2026-10-21T11:02:01Z",
+                  "rescheduled_from_id": null
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/appointments/{id}/reschedule": {
+      "patch": {
+        "tags": ["Appointments"],
+        "summary": "Move an appointment to another slot",
+        "description": "Cancels the original appointment and books a replacement in its place, in one transaction. The new slot is validated exactly as it would be for a fresh booking.\n\nThe replacement is a new appointment with a new id, and `rescheduled_from_id` points back at the original. If the new slot is taken, nothing changes: the original is still booked.\n\nMoving an appointment to the slot it already occupies is allowed.",
+        "operationId": "rescheduleAppointment",
+        "parameters": [
+          { "$ref": "#/components/parameters/AppointmentId" }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/RescheduleRequest" },
+              "example": {
+                "new_appointment_date": "2026-11-03",
+                "new_start_time": "14:00"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The replacement appointment.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Appointment" },
+                "example": {
+                  "id": 2,
+                  "doctor_id": 1,
+                  "patient_id": 1,
+                  "appointment_date": "2026-11-03",
+                  "start_time": "14:00",
+                  "end_time": "14:30",
+                  "status": "booked",
+                  "cancellation_reason": null,
+                  "cancelled_at": null,
+                  "created_at": "2026-10-21T11:07:10Z",
+                  "rescheduled_from_id": 1
+                }
+              }
+            }
+          },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" },
+          "422": { "$ref": "#/components/responses/Unprocessable" }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "tags": ["Operations"],
+        "summary": "Check that the service is healthy",
+        "description": "Pings the database. Returns `503` when the database cannot be reached, which is what the deployment platform's health check uses.",
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "description": "The service is up and the database answers.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Health" },
+                "example": { "status": "ok" }
+              }
+            }
+          },
+          "503": {
+            "description": "The database is not reachable.",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/Health" },
+                "example": { "status": "unhealthy" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "DoctorId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The doctor's id.",
+        "schema": { "type": "integer", "format": "int64", "minimum": 1 },
+        "example": 1
+      },
+      "PatientId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The patient's id.",
+        "schema": { "type": "integer", "format": "int64", "minimum": 1 },
+        "example": 1
+      },
+      "AppointmentId": {
+        "name": "id",
+        "in": "path",
+        "required": true,
+        "description": "The appointment's id.",
+        "schema": { "type": "integer", "format": "int64", "minimum": 1 },
+        "example": 1
+      },
+      "Date": {
+        "name": "date",
+        "in": "query",
+        "required": true,
+        "description": "The calendar date to list slots for.",
+        "schema": {
+          "type": "string",
+          "format": "date",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+        },
+        "example": "2026-11-02"
+      },
+      "IncludeCancelled": {
+        "name": "include_cancelled",
+        "in": "query",
+        "required": false,
+        "description": "Include cancelled appointments, past and future. Useful for showing the trail a reschedule leaves behind.",
+        "schema": { "type": "boolean", "default": false },
+        "example": true
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "The request could not be read: malformed JSON, an unknown field, an unparseable date or time, or a missing parameter.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "unparseableDate": {
+                "summary": "The date is not a calendar date",
+                "value": {
+                  "error": {
+                    "code": "INVALID_DATE",
+                    "message": "appointment_date \"2026-13-01\" must be a calendar date in YYYY-MM-DD format"
+                  }
+                }
+              },
+              "unknownField": {
+                "summary": "The body carried a field the API does not know",
+                "value": {
+                  "error": {
+                    "code": "INVALID_JSON",
+                    "message": "request body is not valid JSON: json: unknown field \"doctorId\""
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "NotFound": {
+        "description": "The doctor, patient or appointment does not exist.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "example": {
+              "error": {
+                "code": "DOCTOR_NOT_FOUND",
+                "message": "doctor 99 does not exist"
+              }
+            }
+          }
+        }
+      },
+      "Conflict": {
+        "description": "The resource is in a state that conflicts with the request: the slot is already booked, or the appointment is already cancelled.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "slotTaken": {
+                "summary": "Somebody else booked the slot first",
+                "value": {
+                  "error": {
+                    "code": "SLOT_TAKEN",
+                    "message": "slot 09:30 on 2026-11-02 is already booked for doctor 1",
+                    "details": {
+                      "appointment_date": "2026-11-02",
+                      "doctor_id": 1,
+                      "start_time": "09:30"
+                    }
+                  }
+                }
+              },
+              "alreadyCancelled": {
+                "summary": "The appointment was cancelled before",
+                "value": {
+                  "error": {
+                    "code": "APPOINTMENT_ALREADY_CANCELLED",
+                    "message": "appointment 1 is already cancelled"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "Unprocessable": {
+        "description": "The request was read, but it is not allowed: the slot falls outside working hours, is not on the half hour, is less than an hour away, or the appointment has already started.",
+        "content": {
+          "application/json": {
+            "schema": { "$ref": "#/components/schemas/Error" },
+            "examples": {
+              "outsideWorkingHours": {
+                "summary": "The slot is after the doctor finishes",
+                "value": {
+                  "error": {
+                    "code": "OUTSIDE_WORKING_HOURS",
+                    "message": "start time 18:30 is outside the doctor's working hours (10:00-18:00)",
+                    "details": {
+                      "start_time": "18:30",
+                      "shift_start": "10:00",
+                      "shift_end": "18:00"
+                    }
+                  }
+                }
+              },
+              "tooSoon": {
+                "summary": "The slot is less than an hour away",
+                "value": {
+                  "error": {
+                    "code": "TOO_SOON",
+                    "message": "appointments must be booked at least 1h0m0s in advance; 09:30 on 2026-10-21 is only 30m0s away",
+                    "details": {
+                      "appointment_date": "2026-10-21",
+                      "start_time": "09:30",
+                      "minimum_lead_time": "1h0m0s"
+                    }
+                  }
+                }
+              },
+              "alreadyStarted": {
+                "summary": "The appointment has already started",
+                "value": {
+                  "error": {
+                    "code": "APPOINTMENT_IN_PAST",
+                    "message": "appointment 1 has already started and cannot be cancelled"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "schemas": {
+      "Doctor": {
+        "type": "object",
+        "description": "A clinician who takes appointments.",
+        "required": ["id", "name", "start_working_hour", "end_working_hour"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The doctor's id.",
+            "examples": [1]
+          },
+          "name": {
+            "type": "string",
+            "description": "The doctor's display name.",
+            "examples": ["Dr. Amara Ochieng"]
+          },
+          "start_working_hour": {
+            "type": "string",
+            "description": "The time of day the doctor's shift begins, in `HH:MM` 24-hour form.",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "examples": ["09:00"]
+          },
+          "end_working_hour": {
+            "type": "string",
+            "description": "The time of day the doctor's shift ends, in `HH:MM` 24-hour form.",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "examples": ["17:00"]
+          }
+        }
+      },
+      "Patient": {
+        "type": "object",
+        "description": "Someone who can hold appointments.",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The patient's id.",
+            "examples": [1]
+          },
+          "name": {
+            "type": "string",
+            "description": "The patient's name.",
+            "examples": ["Grace Wanjiku"]
+          }
+        }
+      },
+      "Slot": {
+        "type": "object",
+        "description": "A 30-minute window in a doctor's day.",
+        "required": ["start", "end"],
+        "properties": {
+          "start": {
+            "type": "string",
+            "description": "When the slot begins, in `HH:MM` 24-hour form.",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "examples": ["09:00"]
+          },
+          "end": {
+            "type": "string",
+            "description": "When the slot ends, in `HH:MM` 24-hour form. Always 30 minutes after the start.",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "examples": ["09:30"]
+          }
+        }
+      },
+      "Availability": {
+        "type": "object",
+        "description": "The slots that can be booked on a given day.",
+        "required": ["doctor_id", "date", "slots"],
+        "properties": {
+          "doctor_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The doctor's id.",
+            "examples": [1]
+          },
+          "date": {
+            "type": "string",
+            "format": "date",
+            "description": "The calendar date the slots belong to.",
+            "examples": ["2026-11-02"]
+          },
+          "slots": {
+            "type": "array",
+            "description": "The free slots, in order. Empty when nothing is free or the date is in the past.",
+            "items": { "$ref": "#/components/schemas/Slot" }
+          }
+        }
+      },
+      "Appointment": {
+        "type": "object",
+        "description": "A booked 30-minute appointment.",
+        "required": [
+          "id",
+          "doctor_id",
+          "patient_id",
+          "appointment_date",
+          "start_time",
+          "end_time",
+          "status",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The appointment's id.",
+            "examples": [1]
+          },
+          "doctor_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The doctor the appointment is with.",
+            "examples": [1]
+          },
+          "patient_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The patient the appointment is for.",
+            "examples": [1]
+          },
+          "appointment_date": {
+            "type": "string",
+            "format": "date",
+            "description": "The calendar date of the appointment.",
+            "examples": ["2026-11-02"]
+          },
+          "start_time": {
+            "type": "string",
+            "description": "When the appointment begins, in `HH:MM` 24-hour form.",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "examples": ["09:30"]
+          },
+          "end_time": {
+            "type": "string",
+            "description": "When the appointment ends, in `HH:MM` 24-hour form.",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "examples": ["10:00"]
+          },
+          "status": {
+            "type": "string",
+            "description": "Whether the appointment is still on or has been cancelled.",
+            "enum": ["booked", "cancelled"],
+            "examples": ["booked"]
+          },
+          "cancellation_reason": {
+            "type": ["string", "null"],
+            "description": "Why the appointment was cancelled, if it was and the caller gave a reason.",
+            "examples": ["Patient no longer needs the appointment"]
+          },
+          "cancelled_at": {
+            "type": ["string", "null"],
+            "format": "date-time",
+            "description": "When the appointment was cancelled.",
+            "examples": ["2026-10-21T11:06:16Z"]
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "When the appointment was booked.",
+            "examples": ["2026-10-21T11:02:01Z"]
+          },
+          "rescheduled_from_id": {
+            "type": ["integer", "null"],
+            "format": "int64",
+            "description": "The appointment this one replaced, if it came from a reschedule.",
+            "examples": [1]
+          }
+        }
+      },
+      "PatientAppointments": {
+        "type": "object",
+        "description": "The appointments a patient holds.",
+        "required": ["patient_id", "appointments"],
+        "properties": {
+          "patient_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The patient's id.",
+            "examples": [1]
+          },
+          "appointments": {
+            "type": "array",
+            "description": "The appointments, soonest first.",
+            "items": { "$ref": "#/components/schemas/Appointment" }
+          }
+        }
+      },
+      "BookAppointmentRequest": {
+        "type": "object",
+        "description": "The slot to book.",
+        "required": ["doctor_id", "patient_id", "appointment_date", "start_time"],
+        "properties": {
+          "doctor_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "The doctor to book with.",
+            "examples": [1]
+          },
+          "patient_id": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1,
+            "description": "The patient the appointment is for.",
+            "examples": [1]
+          },
+          "appointment_date": {
+            "type": "string",
+            "format": "date",
+            "description": "The calendar date of the appointment.",
+            "examples": ["2026-11-02"]
+          },
+          "start_time": {
+            "type": "string",
+            "description": "When the appointment begins, in `HH:MM` 24-hour form. Must land on the hour or the half hour.",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "examples": ["09:30"]
+          }
+        }
+      },
+      "CancelAppointmentRequest": {
+        "type": "object",
+        "description": "The reason for cancelling. The whole body is optional.",
+        "properties": {
+          "appointment_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The appointment to cancel. Accepted for convenience, but it must match the id in the path if it is sent.",
+            "examples": [1]
+          },
+          "reason": {
+            "type": ["string", "null"],
+            "description": "Why the appointment is being cancelled. Stored on the appointment.",
+            "maxLength": 500,
+            "examples": ["Patient no longer needs the appointment"]
+          }
+        }
+      },
+      "RescheduleRequest": {
+        "type": "object",
+        "description": "The slot to move the appointment to.",
+        "required": ["new_appointment_date", "new_start_time"],
+        "properties": {
+          "appointment_id": {
+            "type": "integer",
+            "format": "int64",
+            "description": "The appointment to move. Accepted for convenience, but it must match the id in the path if it is sent.",
+            "examples": [1]
+          },
+          "new_appointment_date": {
+            "type": "string",
+            "format": "date",
+            "description": "The calendar date to move the appointment to.",
+            "examples": ["2026-11-03"]
+          },
+          "new_start_time": {
+            "type": "string",
+            "description": "When the appointment should begin, in `HH:MM` 24-hour form. Must land on the hour or the half hour.",
+            "pattern": "^([01][0-9]|2[0-3]):[0-5][0-9]$",
+            "examples": ["14:00"]
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "description": "The envelope every failure uses.",
+        "required": ["error"],
+        "properties": {
+          "error": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {
+                "type": "string",
+                "description": "A stable, machine-readable code for the failure.",
+                "enum": [
+                  "INVALID_JSON",
+                  "INVALID_REQUEST",
+                  "INVALID_DATE",
+                  "INVALID_TIME",
+                  "DOCTOR_NOT_FOUND",
+                  "PATIENT_NOT_FOUND",
+                  "APPOINTMENT_NOT_FOUND",
+                  "SLOT_NOT_ALIGNED",
+                  "OUTSIDE_WORKING_HOURS",
+                  "TOO_SOON",
+                  "APPOINTMENT_IN_PAST",
+                  "SLOT_TAKEN",
+                  "APPOINTMENT_ALREADY_CANCELLED",
+                  "INTERNAL_ERROR"
+                ],
+                "examples": ["SLOT_TAKEN"]
+              },
+              "message": {
+                "type": "string",
+                "description": "What went wrong, in words.",
+                "examples": ["slot 09:30 on 2026-11-02 is already booked for doctor 1"]
+              },
+              "details": {
+                "type": "object",
+                "description": "Extra context about the failure. Which fields are present depends on the code.",
+                "additionalProperties": true,
+                "examples": [
+                  {
+                    "appointment_date": "2026-11-02",
+                    "doctor_id": 1,
+                    "start_time": "09:30"
+                  }
+                ]
+              }
+            }
+          }
+        }
+      },
+      "Health": {
+        "type": "object",
+        "description": "The service's health.",
+        "required": ["status"],
+        "properties": {
+          "status": {
+            "type": "string",
+            "description": "`ok` when the service and its database are both up.",
+            "examples": ["ok"]
+          }
+        }
+      }
+    }
+  }
+}

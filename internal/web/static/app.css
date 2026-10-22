@@ -490,6 +490,109 @@ img, svg {
   color: var(--neutral-600);
 }
 
+/* ------------------------------------------------------------ api docs */
+
+.docs__main {
+  padding-block: var(--space-8) var(--space-10);
+  min-height: 60vh;
+}
+
+.docs__eyebrow {
+  font-size: var(--text-sm);
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.docs__title {
+  margin-top: var(--space-3);
+  font-size: var(--text-3xl);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.docs__lede {
+  margin-top: var(--space-4);
+  font-size: var(--text-lg);
+  color: var(--neutral-700);
+  max-width: 48ch;
+}
+
+.docs__swagger {
+  margin-top: var(--space-7);
+}
+
+.docs__fallback {
+  margin-top: var(--space-7);
+}
+
+.docs__heading {
+  font-size: var(--text-xl);
+  font-weight: 700;
+  margin-bottom: var(--space-4);
+}
+
+.docs__table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--neutral-200);
+  border-radius: var(--radius-card);
+  overflow: hidden;
+}
+
+.docs__table th,
+.docs__table td {
+  text-align: left;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--neutral-200);
+  vertical-align: top;
+}
+
+.docs__table th {
+  background: var(--neutral-50);
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+}
+
+.docs__table tr:last-child td {
+  border-bottom: 0;
+}
+
+.docs__table code {
+  font-size: var(--text-sm);
+}
+
+.docs__method {
+  display: inline-block;
+  min-width: 4.5rem;
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+  text-align: center;
+}
+
+.docs__method--GET {
+  background: var(--info-50);
+  color: var(--info-800);
+}
+
+.docs__method--POST {
+  background: var(--success-50);
+  color: var(--success-800);
+}
+
+.docs__method--PATCH {
+  background: var(--warning-50);
+  color: var(--warning-800);
+}
+
+.docs__note {
+  margin-top: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--neutral-600);
+  max-width: 60ch;
+}
+
 /* ------------------------------------------------------- doctor listing */
 
 .doctor-list,

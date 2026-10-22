@@ -29,7 +29,9 @@ import (
 	"github.com/PhilN8/clinic-booking-system/internal/config"
 	"github.com/PhilN8/clinic-booking-system/internal/database"
 	"github.com/PhilN8/clinic-booking-system/internal/handlers"
+	"github.com/PhilN8/clinic-booking-system/internal/openapi"
 	"github.com/PhilN8/clinic-booking-system/internal/repository"
+	"github.com/PhilN8/clinic-booking-system/internal/server"
 	"github.com/PhilN8/clinic-booking-system/internal/service"
 	"github.com/PhilN8/clinic-booking-system/internal/web"
 )
@@ -75,7 +77,7 @@ func run() error {
 		return err
 	}
 
-	router := routes(api, site)
+	router := server.New(api, site, openapi.Handler(), logger)
 
 	server := &http.Server{
 		Addr:    cfg.Addr,
@@ -115,47 +117,6 @@ func run() error {
 
 	logger.Info("shutdown complete")
 	return nil
-}
-
-// routes builds the router.
-//
-// The route table lives here rather than in either package because the API
-// and the site share three paths and the router has to negotiate between
-// them.
-func routes(api *handlers.API, site *web.Web) http.Handler {
-	mux := http.NewServeMux()
-
-	// The JSON API, always JSON, at /api. This is the unambiguous way to
-	// reach it from a browser or a tool that sends "Accept: text/html".
-	apiMux := http.NewServeMux()
-	registerAPI(apiMux, api)
-	mux.Handle("/api/", http.StripPrefix("/api", apiMux))
-
-	// Paths that exist as both an endpoint and a page.
-	mux.HandleFunc("GET /doctors", web.Negotiate(api.ListDoctors, site.DoctorsPage))
-	mux.HandleFunc("GET /doctors/{id}", web.Negotiate(api.GetDoctor, site.DoctorPage))
-	mux.HandleFunc("GET /patients/{id}/appointments",
-		web.Negotiate(api.PatientAppointments, site.AppointmentsPage))
-
-	// JSON only.
-	mux.HandleFunc("GET /healthz", api.Healthz)
-	mux.HandleFunc("POST /appointments", api.BookAppointment)
-	mux.HandleFunc("PATCH /appointments/{id}/cancel", api.CancelAppointment)
-	mux.HandleFunc("PATCH /appointments/{id}/reschedule", api.RescheduleAppointment)
-	mux.HandleFunc("GET /doctors/{id}/availability", api.Availability)
-	mux.HandleFunc("GET /patients/{id}", api.GetPatient)
-
-	// Site only.
-	mux.HandleFunc("GET /{$}", site.LandingPage)
-	mux.HandleFunc("POST /doctors/{id}/appointments", site.BookAppointment)
-	mux.HandleFunc("GET /appointments/{id}/cancel", site.CancelPage)
-	mux.HandleFunc("POST /appointments/{id}/cancel", site.CancelAppointment)
-	mux.HandleFunc("GET /appointments/{id}/reschedule", site.ReschedulePage)
-	mux.HandleFunc("POST /appointments/{id}/reschedule", site.RescheduleAppointment)
-	mux.HandleFunc("GET /appointments/{id}/confirmation", site.ConfirmationPage)
-	mux.Handle("/assets/", site.Assets())
-
-	return api.Middleware(mux)
 }
 
 // registerAPI adds the JSON API routes to a mux.

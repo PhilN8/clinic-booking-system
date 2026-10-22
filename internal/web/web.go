@@ -142,6 +142,10 @@ func (w *Web) Middleware(next http.Handler) http.Handler {
 	})
 }
 
+// CSSVariables returns the palette as CSS custom properties, so a page that
+// does not use the site layout can still be coloured from the tokens.
+func (w *Web) CSSVariables() template.CSS { return w.cssVariables }
+
 // Assets serves the stylesheet and the script.
 func (w *Web) Assets() http.Handler {
 	sub, err := fs.Sub(staticFS, "static")

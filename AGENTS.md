@@ -60,6 +60,11 @@ internal/database/database.go    # connect, ping, migrate (embed migrations)
 internal/database/migrations/    # 0001_init.sql, ... (embedded)
 internal/httperr/httperr.go      # typed error + JSON error envelope
 internal/models/models.go        # Doctor, Patient, Appointment
+internal/openapi/openapi.go      # serves the OpenAPI document, embedded in the binary
+internal/openapi/openapi.json    # the OpenAPI 3.1 description of the API
+internal/openapi/openapi_test.go # the drift tests that keep the document honest
+internal/server/routes.go        # the route table, which drives the router
+internal/server/templates/docs.html  # the browsable API reference
 internal/repository/             # ALL SQL lives here
 internal/repository/doctor.go
 internal/repository/patient.go
@@ -93,6 +98,7 @@ design/tokens.json               # the palette; the source of truth for colour
 design/tokens.go                 # loading, lookup and CSS variable generation
 design/tokens_test.go            # the WCAG contrast assertions
 design.md                        # the design system document
+docs/sys_design_photo.jpg        # the system design diagram shown in the README
 .github/workflows/ci.yml
 Dockerfile
 docker-compose.yml
@@ -101,12 +107,18 @@ README.md
 reference.md
 ```
 
-**Layering rule:** `handlers → service → repository → database`. The service layer never imports
-`net/http`; handlers never build SQL; repositories contain no business rules.
+**Layering rule: hexagonal (ports and adapters).** `handlers` and `web` are driving adapters,
+`service` is the port they call, and `repository` is the driven adapter it calls back out
+through. The dependency arrow only points inwards. The service layer never imports `net/http` or
+`sql`; handlers never build SQL; repositories contain no business rules.
 
 **The site (`internal/web`) sits alongside the API, not above it.** It reads through the same
 service layer, renders Go templates, and never writes SQL. The JSON API contract is unchanged.
 
+**The route table lives in `internal/server/routes.go`, not in `cmd/api`.** One table drives the
+router and is compared against the OpenAPI document by a test, so a route cannot be added
+without it being documented. Adding a route means adding a `Route` entry and a path in
+`internal/openapi/openapi.json`; the test fails until both are there.
 
 ---
 
@@ -410,6 +422,12 @@ is not allowed".
 `OUTSIDE_WORKING_HOURS`, `TOO_SOON`, `APPOINTMENT_IN_PAST`, `SLOT_TAKEN`,
 `APPOINTMENT_ALREADY_CANCELLED`, `INTERNAL_ERROR`.
 
+**Every endpoint above is also in `internal/openapi/openapi.json`.** The document is OpenAPI 3.1
+and carries the domain rules, a request and a response example for every operation, and the
+error vocabulary. `internal/openapi/openapi_test.go` fails the build if a route is undocumented,
+if the document documents a path nothing serves, if two operations share an `operationId`, if an
+error code is missing from the vocabulary, or if a `$ref` resolves to nothing.
+
 ---
 
 ## 7. Concurrency
@@ -522,28 +540,31 @@ matches `DATABASE_URL` in `.env.example`. Include a `.env.example`.
 The documentation is split in two, because the assessment asks for different things in different
 places.
 
-**`README.md`** answers the assessment's sections 1, 3 and 4, and nothing else:
+**`README.md`** answers the assessment's sections 1, 2, 3 and 4:
 
 1. **System design** — entities, request flow, the layering, the slot model, how double-booking is
    prevented, the reschedule transaction, the time model, and then the key decisions with the
    alternative each one rejected.
-2. **Deployment and CI/CD** — the public URL, the deploy trigger branch, the pipeline, how the
+2. **API implementation and its documentation** — the endpoint list, the changes made to the API
+   documentation, and the error vocabulary with the status each code maps to.
+3. **Deployment and CI/CD** — the public URL, the deploy trigger branch, the pipeline, how the
    deploy is gated, and the operational troubleshooting.
-3. **AI reflection** — all four assessment questions answered honestly and specifically. Name the
+4. **AI reflection** — all four assessment questions answered honestly and specifically. Name the
    prompt that produced a useful result, and name cases where the AI was wrong and how it was
    caught. Do not fake confidence; specificity is what gets read.
 
 **`reference.md`** holds everything a reviewer needs to run and use the code: how to run it
-locally with a copy-pasteable walkthrough, the full API reference, the test matrix, the
-deployment reference, the known limitations and the design system pointer.
+locally with a copy-pasteable walkthrough, the full API reference with every request and
+response body, the test matrix, the deployment reference, the known limitations and the design
+system pointer.
 
 Two rules for both files:
 
 - **Write for a human reader.** Use plain English, short sentences and active voice. No
   one-line closers that restate the paragraph above them, no bold labels on every list item, no
   horizontal rule between every section, and no em dashes in prose.
-- **Do not split the assessment's sections across the two files.** The README holds sections 1,
-  3 and 4; the reference holds the material for section 2 and the operating notes.
+- **Do not split an assessment section across the two files.** The README answers the four
+  sections; the reference holds the material behind them.
 
 ---
 
@@ -579,6 +600,7 @@ Rules for anyone extending it:
       at the boundary.
 - [ ] Table-driven tests cover every rule in §5.
 - [ ] `Dockerfile`, `docker-compose.yml`, `render.yaml`, `.github/workflows/ci.yml` all present.
+- [ ] Every API route is in the OpenAPI document, and `/openapi.json` and `/docs` are served.
 - [ ] The app is deployed and reachable at a public URL; `/healthz` returns 200.
 - [ ] README answers assessment sections 1, 3 and 4, including the live URL and the AI reflection.
 - [ ] `curl` walkthrough in `reference.md` works verbatim from a clean clone.

@@ -11,8 +11,10 @@ serves the patient-facing site.
 |---|---|
 | **Live site** | <https://clinic-booking-system-1-yu19.onrender.com> |
 | **Live API** | <https://clinic-booking-system-1-yu19.onrender.com/api/doctors> |
+| **API reference** | <https://clinic-booking-system-1-yu19.onrender.com/docs> |
+| **OpenAPI document** | <https://clinic-booking-system-1-yu19.onrender.com/openapi.json> |
 
-This file answers sections 1, 3 and 4 of the assessment. The API reference, the local setup, the
+This file answers all four sections of the assessment. The API reference, the local setup, the
 test matrix, the deployment reference, the known limitations and the design system are in
 [`reference.md`](reference.md).
 
@@ -54,25 +56,30 @@ while "when was this row cancelled" is an event on a timeline.
 
 ### Components
 
-```
-HTTP request
-    │
-    ▼
-internal/handlers      decode the request, call the service, encode the response
-    ▼
-internal/service       the clinic's rules: validity, grid, lead time, slot generation
-    ▼
-internal/repository    every SQL statement and every transaction
-    ▼
-PostgreSQL
-```
+The architecture is **hexagonal**, also called ports and adapters. The clinic's rules are the
+middle, and everything else attaches to them from the outside.
 
-The dependency arrow only points downwards. The service layer declares the persistence interface
-it needs and the Postgres implementation satisfies it structurally, so the rules never depend on
-the database. That is what lets the rule tests run without one.
+[![System design: the architecture and data flow, the database model and constraints, and the reschedule transaction sequence](docs/sys_design_photo.jpg)](docs/sys_design_photo.jpg)
 
-Rules are pure functions over plain values, and the clock is injected rather than read from the
-inside, so a test can pin it to an exact instant:
+The diagram reads left to right. A request arrives at the router, which is the only place that
+knows both the HTML site and the JSON API exist. The `Accept` header decides which of the two
+answers it. From there the request becomes a method call on the service layer, which is the
+middle of the hexagon: it holds the rules, and it knows nothing about HTTP, templates, SQL or
+Postgres. The repository is the only thing that knows how to talk to the database.
+
+That is the port. The service layer declares the interface it needs from storage
+(`service.Repository`), and the Postgres implementation satisfies it structurally, without the
+service layer importing it or knowing that Postgres exists. The rules never depend on the
+database, which is what lets the rule tests run without one.
+
+The same arrangement holds on the way in. The handlers and the site are **driving adapters**:
+they take a request and turn it into a call on the service. The repository is the **driven
+adapter**: it takes a call and turns it into a query. Swapping either side, for a different
+database or a different transport, touches nothing in the middle.
+
+Because the middle is the whole product, the rules live there as pure functions over plain
+values, and the clock is injected rather than read from the inside, so a test can pin it to an
+exact instant:
 
 ```go
 func ValidateSlot(doctor *models.Doctor, date, start time.Time, now time.Time, loc *time.Location) error
@@ -83,6 +90,10 @@ service layer and renders Go templates, so it works without JavaScript and the J
 untouched. Three paths exist as both a page and an endpoint, and they negotiate on the `Accept`
 header: a browser gets the page, `curl` gets JSON. The whole API is also mounted under `/api`,
 where it is always JSON.
+
+Every endpoint is described by an OpenAPI 3.1 document, served at `/openapi.json` and rendered at
+`/docs`. The route table in `internal/server/routes.go` drives the router and is compared
+against that document by a test, so a route cannot be added without it being documented.
 
 ### Slots
 
@@ -165,9 +176,11 @@ service needs is about forty lines.
 links the replacement to its predecessor. The cost is that the appointment id changes and the
 patient sees two entries in their history, one cancelled and one booked.
 
-**A service layer, with rules as pure functions.** The rules should be testable without a
-database, and the injected clock lets the one-hour boundary be asserted exactly rather than
-approximately.
+**A hexagonal service layer, with rules as pure functions.** The service layer is the port the
+adapters plug into, so the rules are testable without a database and without an HTTP server. The
+injected clock lets the one-hour boundary be asserted exactly rather than approximately. The
+alternative, rules living in the handlers, is where a lot of Go web services put them, and it
+couples the clinic's rules to the transport.
 
 **No authentication.** The brief does not ask for it and its scope is booking logic. Inventing a
 user model and a session story would have left them untested against real requirements. The
@@ -178,6 +191,81 @@ the deployment can book and cancel.
 is `400`. A date that parses but falls outside the doctor's hours is `422`. Making everything
 `400` is simpler, but it collapses "you sent nonsense" and "that slot is not available" into the
 same answer.
+
+## Section 2: API implementation and its documentation
+
+*The assessment asks for the REST API, the validation behind it, and meaningful errors with
+correct status codes. This section lists the endpoints and the changes made to the API
+documentation. The full reference, with every request and response body, is in
+[`reference.md`](reference.md).*
+
+### The endpoints
+
+| Method | Path | What it does |
+|---|---|---|
+| `GET` | `/doctors` | List the doctors |
+| `GET` | `/doctors/{id}` | Get one doctor |
+| `GET` | `/doctors/{id}/availability` | List the free slots for a doctor on a date |
+| `GET` | `/patients/{id}` | Get one patient |
+| `GET` | `/patients/{id}/appointments` | List a patient's appointments, soonest first |
+| `POST` | `/appointments` | Book an appointment |
+| `PATCH` | `/appointments/{id}/cancel` | Cancel an appointment and free its slot |
+| `PATCH` | `/appointments/{id}/reschedule` | Move an appointment to another slot |
+| `GET` | `/healthz` | Check that the service and its database are up |
+
+The same nine routes are also mounted under `/api`, where they always answer with JSON. The
+three that share a path with a page negotiate on the `Accept` header, which the document explains.
+
+### The API documentation changes
+
+The API had a list of endpoints in the README and a handler for each route, and nothing that
+connected the two. A reader had to take the documentation on trust. These are the changes.
+
+An OpenAPI 3.1 document now describes all nine endpoints. It lives at
+`internal/openapi/openapi.json`, is served as JSON at `/openapi.json`, and is rendered with a
+browsable reference at `/docs`.
+
+The domain rules moved into the document. Its description now explains how slots are divided,
+why the working-hours bounds are inclusive, why starts must land on the half hour, what the
+one-hour notice means, and how the database refuses a double booking. A client developer meets
+the rules where they need them, rather than in a separate file.
+
+Every operation carries a request example and a response example, taken from the seeded doctors
+and patients, and each of the four common failures has a worked example.
+
+The error vocabulary is a reusable schema whose `code` is an enum of all fourteen error codes,
+so it is in the document rather than scattered through prose. Reusable components cover the
+path ids, the date query parameter, the `include_cancelled` flag and the four common failure
+responses.
+
+The document is embedded in the binary, so the deployed service carries the description of the
+API it is actually serving. There is no second copy to drift.
+
+The route table moved out of `cmd/api` into `internal/server/routes.go`, so one table drives
+both the router and the tests. The route table is now the contract.
+
+Eight drift tests keep the document honest. The build fails if a route is not documented, if the
+document describes a path nothing serves, if two operations share an `operationId`, if an error
+code is missing from the vocabulary, if a `$ref` resolves to nothing, if a component is never
+referenced, or if the file was edited without being rebuilt into the binary.
+
+The public contract did not change. A route cannot be added without being documented, and a
+documented route cannot drift from the code.
+
+### The error vocabulary
+
+Every failure uses one envelope: an `error` object with a stable `code`, a human-readable
+`message` and optional `details`.
+
+| Status | Codes | What it means |
+|---|---|---|
+| `400` | `INVALID_JSON`, `INVALID_REQUEST`, `INVALID_DATE`, `INVALID_TIME` | The request could not be read |
+| `404` | `DOCTOR_NOT_FOUND`, `PATIENT_NOT_FOUND`, `APPOINTMENT_NOT_FOUND` | The resource does not exist |
+| `409` | `SLOT_TAKEN`, `APPOINTMENT_ALREADY_CANCELLED` | The resource is in a conflicting state |
+| `422` | `OUTSIDE_WORKING_HOURS`, `SLOT_NOT_ALIGNED`, `TOO_SOON`, `APPOINTMENT_IN_PAST` | The request was read but is not allowed |
+| `500` | `INTERNAL_ERROR` | Something went wrong on the server |
+
+`400` means the request could not be read. `422` means it was read and is not allowed.
 
 ## Section 3: deployment and CI/CD
 
@@ -194,6 +282,7 @@ Render runs the service as a Docker web service with a managed PostgreSQL 18 ins
 | **Live site** | <https://clinic-booking-system-1-yu19.onrender.com> |
 | **Live API** | <https://clinic-booking-system-1-yu19.onrender.com/api/doctors> |
 | **Health check** | <https://clinic-booking-system-1-yu19.onrender.com/healthz> |
+| **API reference** | <https://clinic-booking-system-1-yu19.onrender.com/docs> |
 | **Deploy trigger** | a push to `main` |
 | **Database** | Render managed PostgreSQL 18, free plan |
 

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>API reference · Nairobi Clinic</title>
+  <meta name="description" content="The OpenAPI description of every JSON endpoint in the clinic booking API.">
+  <meta name="color-scheme" content="light">
+  <style>
+    /* The palette comes from design/tokens.json, the same source the site
+       and the contrast test use. */
+    :root {
+{{.CSSVariables}}
+    }
+  </style>
+  <link rel="stylesheet" href="/assets/app.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css">
+</head>
+<body class="docs">
+  <main class="container docs__main">
+    <p class="docs__eyebrow"><a href="/">Nairobi Clinic</a></p>
+    <h1 class="docs__title">API reference</h1>
+    <p class="docs__lede">
+      The OpenAPI description of every JSON endpoint. The document itself is served as JSON at
+      <a href="/openapi.json">/openapi.json</a>, and the same API is available under
+      <a href="/api/doctors">/api</a> where it always answers with JSON.
+    </p>
+
+    <div id="swagger-ui" class="docs__swagger"></div>
+
+    <section id="docs-fallback" class="docs__fallback">
+      <h2 class="docs__heading">Endpoints</h2>
+      <table class="docs__table">
+        <thead>
+          <tr>
+            <th scope="col">Method</th>
+            <th scope="col">Path</th>
+            <th scope="col">What it does</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .Routes}}
+          <tr>
+            <td><code class="docs__method docs__method--{{.Method}}">{{.Method}}</code></td>
+            <td><code>{{.Path}}</code></td>
+            <td>{{.Summary}}</td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+      <p class="docs__note">
+        Each endpoint takes a JSON body and answers with JSON. Failures use one envelope with a
+        stable <code>code</code> and a human-readable <code>message</code>. The full document has
+        request and response examples for every operation.
+      </p>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js" crossorigin></script>
+  <script>
+    // The endpoint table above is rendered on the server and works without
+    // this script. When Swagger UI loads it takes over the same section.
+    window.addEventListener('load', function () {
+      if (typeof SwaggerUIBundle === 'undefined') {
+        return;
+      }
+      window.ui = SwaggerUIBundle({
+        url: '/openapi.json',
+        dom_id: '#swagger-ui',
+        deepLinking: true,
+        displayRequestDuration: true,
+        tryItOutEnabled: true,
+        presets: [SwaggerUIBundle.presets.apis]
+      });
+      document.getElementById('docs-fallback').hidden = true;
+    });
+  </script>
+</body>
+</html>
